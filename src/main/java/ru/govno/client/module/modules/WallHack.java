@@ -68,7 +68,7 @@ public class WallHack extends Module {
    public void onUpdate() {
       if (!this.Players.getBool() && !this.Friends.getBool() && !this.Crystals.getBool() && !this.Mobs.getBool()) {
          this.toggle(false);
-         Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7включите что-нибудь в настройках.", false);
+         Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7First enable something in the settings.", false);
       }
    }
 

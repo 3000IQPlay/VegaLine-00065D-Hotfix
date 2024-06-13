@@ -77,6 +77,8 @@ import ru.govno.client.utils.Render.ShaderUtil2;
 import ru.govno.client.utils.Render.ShaderUtility;
 import ru.govno.client.utils.Render.Vec2fColored;
 
+// TODO: Translate
+
 public class ESP extends Module {
    public static ESP get;
    private static final AnimationUtils alphaPC = new AnimationUtils(0.0F, 0.0F, 0.1F);

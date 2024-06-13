@@ -25,8 +25,8 @@ public class VClip extends Module {
          Client.msg(
             "§f§lModules:§r [§l"
                + this.name
-               + "§r§7] §7тепаю на"
-               + (this.Power.getFloat() != 0.0F ? " " + this.Power.getFloat() + (this.Power.getFloat() > 0.0F ? " вверх" : " вниз") : "хуй")
+               + "§r§7] §7Stomping"
+               + (this.Power.getFloat() != 0.0F ? " " + this.Power.getFloat() + (this.Power.getFloat() > 0.0F ? " Up" : " Down") : "on Dick")
                + ".",
             false
          );

@@ -46,7 +46,7 @@ public class Respawn extends Module {
          int posy = (int)Minecraft.player.posY;
          int posz = (int)Minecraft.player.posZ;
          if (this.DeathCoords.getBool()) {
-            Client.msg("§f§lModules:§r §7[§lRespawn§r§7]: координаты смерти: " + posx + "," + posy + "," + posz + ".", false);
+            Client.msg("§f§lModules:§r §7[§lRespawn§r§7]: Death coordinates: " + posx + "," + posy + "," + posz + ".", false);
          }
 
          if (this.DeathPoint.getBool()) {

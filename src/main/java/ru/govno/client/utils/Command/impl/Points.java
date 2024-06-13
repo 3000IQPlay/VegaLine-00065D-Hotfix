@@ -7,6 +7,8 @@ import ru.govno.client.Client;
 import ru.govno.client.module.modules.PointTrace;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Points extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

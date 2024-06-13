@@ -115,7 +115,7 @@ public class AWP extends Module {
    private void damageMultiply(boolean successfully, int packetsCount, boolean sendFakeMassage) {
       if (!successfully) {
          if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Не могу увеличить урон лука.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Can't increase bow damage.", false);
          }
       } else {
          float yaw = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[0] : Minecraft.player.rotationYaw;
@@ -143,7 +143,7 @@ public class AWP extends Module {
 
                Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(yaw, 4.2F, false));
             } else {
-               Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: У вас нет элитры в инвентаре.", false);
+               Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: You don't have elytra in your inventory.", false);
             }
          } else {
             Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
@@ -161,7 +161,7 @@ public class AWP extends Module {
          }
 
          if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Увеличваю урон лука.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Increase bow damage.", false);
          }
 
          this.usingProgress.setAnim(0.0F);

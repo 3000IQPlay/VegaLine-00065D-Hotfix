@@ -753,7 +753,7 @@ public class Hud extends Module {
          String mode = this.MarkMode.currentMode;
          if (mode.equalsIgnoreCase("Default")) {
             CFontRenderer fontx = Fonts.neverlose500_13;
-            String wm = "Вегуля :3 | " + Minecraft.getDebugFPS() + "fps";
+            String wm = "Vegulya :3 | " + Minecraft.getDebugFPS() + "FPS";
             curW = (float)fontx.getStringWidth(wm) + 13.5F;
             curH = 9.5F;
             int c1 = ColorUtils.getColor(0, 0, 0, 140);
@@ -793,8 +793,8 @@ public class Hud extends Module {
             int c2 = ColorUtils.getOverallColorFrom(ClientColors.getColor2(), ColorUtils.getColor(0, 100), 0.8F);
             int c5 = ClientColors.getColor1();
             int c6 = ClientColors.getColor2();
-            float w1 = (float)fontx.getStringWidth("Вегуля [" + Minecraft.getDebugFPS() + "fps]") + 2.5F;
-            float w2 = (float)font2.getStringWidth("как всегда на высоте!") + 2.5F;
+            float w1 = (float)fontx.getStringWidth("Vegulya [" + Minecraft.getDebugFPS() + "FPS]") + 2.5F;
+            float w2 = (float)font2.getStringWidth("as always on top!") + 2.5F;
             float w = w1 > w2 ? w1 : w2;
             curW = w;
             curH = 17.0F;
@@ -802,15 +802,15 @@ public class Hud extends Module {
             RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
                x + 1.5F, y + 2.0F, x + 2.0F, y2 - 2.0F, 0.0F, 1.0F, c5, c5, c6, c6, true, true, true
             );
-            fontx.drawClientColoredString("Вегуля [" + Minecraft.getDebugFPS() + "fps]", (double)(x + 4.5F), (double)(y + 1.5F), 1.0F, false);
-            font2.drawClientColoredString("как всегда на высоте!", (double)(x + 5.0F), (double)(y + 11.0F), 1.0F, false);
+            fontx.drawClientColoredString("Vegulya [" + Minecraft.getDebugFPS() + "FPS]", (double)(x + 4.5F), (double)(y + 1.5F), 1.0F, false);
+            font2.drawClientColoredString("as always on top!", (double)(x + 5.0F), (double)(y + 11.0F), 1.0F, false);
             GlStateManager.enableDepth();
             GL11.glDepthMask(true);
          } else if (mode.equalsIgnoreCase("Bloom")) {
             CFontRenderer fontx = Fonts.comfortaaRegular_22;
             CFontRenderer font2 = Fonts.comfortaaRegular_12;
             String str = "VEGALINE";
-            String str2 = "v" + Client.version.replace("#00", "") + " : " + Minecraft.getDebugFPS() + "fps";
+            String str2 = "v" + Client.version.replace("#00", "") + " : " + Minecraft.getDebugFPS() + "FPS";
             float w = (float)fontx.getStringWidth("VEGALINE");
             float w2 = (float)font2.getStringWidth(str2);
             curH = 21.5F;
@@ -873,8 +873,8 @@ public class Hud extends Module {
             if (mode.equalsIgnoreCase("Plate")) {
                CFontRenderer fontx = Fonts.smallestpixel_24;
                CFontRenderer font2 = Fonts.smallestpixel_16;
-               String name = "ВЕГУЛЯ " + Minecraft.getDebugFPS() + "FPS";
-               String addTop = "ЛУЧШИЙ ИЗ ЛУЧШИХ";
+               String name = "VEHICLE " + Minecraft.getDebugFPS() + "FPS";
+               String addTop = "THE BEST OF THE BEST";
                float w = (float)fontx.getStringWidth(name);
                float w2 = (float)font2.getStringWidth(addTop);
                if (w2 > w) {
@@ -955,7 +955,7 @@ public class Hud extends Module {
             );
             RenderUtils.drawSmoothCircle((double)cx, (double)cy, 1.0F, ColorUtils.getColor(185, 125));
             CFontRenderer fontx = Fonts.comfortaaBold_18;
-            String str = "Вегуля / \t" + Minecraft.getDebugFPS() + "fps";
+            String str = "Vegulya / \t" + Minecraft.getDebugFPS() + "FPS";
             fontx.drawStringWithShadow(str, (double)(x + cRange * 2.0F + 6.0F), (double)(y + 8.0F), -1);
             curH = 22.0F;
             curW = cRange * 2.0F + 11.0F + (float)fontx.getStringWidth(str);
@@ -1840,7 +1840,7 @@ public class Hud extends Module {
          getedStaffs.stream().filter(staffToGet -> !this.stringOverlapHasResult(staffPlayerNamesGeted, staffToGet.name, false)).forEach(staffToGet -> {
             this.addStaffList(staffToGet);
             if (isNotifications) {
-               Notifications.Notify.spawnNotify(TextFormatting.RED + "Обнаружен " + TextFormatting.RESET + staffToGet.getName(), Notifications.type.STAFF);
+               Notifications.Notify.spawnNotify(TextFormatting.RED + "Detected " + TextFormatting.RESET + staffToGet.getName(), Notifications.type.STAFF);
                this.staffDetectSound = true;
             }
          });
@@ -1856,7 +1856,7 @@ public class Hud extends Module {
             staff.setSkinLoc(null);
             if (isNotifications) {
                Notifications.Notify.spawnNotify(
-                  TextFormatting.RED + "Стафф " + TextFormatting.RESET + staff.getName() + TextFormatting.RESET + TextFormatting.GREEN + " вышел",
+                  TextFormatting.RED + "Staff " + TextFormatting.RESET + staff.getName() + TextFormatting.RESET + TextFormatting.GREEN + " came out.",
                   Notifications.type.STAFF
                );
                this.staffUpdateSound = true;
@@ -1894,12 +1894,12 @@ public class Hud extends Module {
                         if (isNotifications && staffGeted.getTime() > 500L) {
                            Notifications.Notify.spawnNotify(
                               TextFormatting.RED
-                                 + "Cтафф "
+                                 + "Staff "
                                  + TextFormatting.RESET
                                  + staffGeted.getDisplayName()
                                  + " "
                                  + TextFormatting.RESET
-                                 + (trueVanish ? TextFormatting.RED + "вошёл в ваниш" : TextFormatting.GREEN + "вышел с ваниша"),
+                                 + (trueVanish ? TextFormatting.RED + "entered vanish!" : TextFormatting.GREEN + "left vanish!"),
                               Notifications.type.STAFF
                            );
                            this.staffUpdateSound = true;
@@ -1929,13 +1929,13 @@ public class Hud extends Module {
 
                            Notifications.Notify.spawnNotify(
                               TextFormatting.RED
-                                 + "Cтафф "
+                                 + "Staff "
                                  + TextFormatting.RESET
                                  + staffGeted.getDisplayName()
                                  + " "
                                  + TextFormatting.RESET
                                  + TextFormatting.GRAY
-                                 + "вошёл в "
+                                 + "entered "
                                  + gmColor
                                  + "Gm"
                                  + gmPass.getID(),

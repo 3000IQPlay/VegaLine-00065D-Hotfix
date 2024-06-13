@@ -7,6 +7,8 @@ import ru.govno.client.cfg.ConfigManager;
 import ru.govno.client.cfg.GuiConfig;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Configs extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

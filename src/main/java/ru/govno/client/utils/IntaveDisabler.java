@@ -109,15 +109,15 @@ public class IntaveDisabler {
                   .sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY + 4.0, Minecraft.player.posZ, false));
                motionTicks = 4;
                disableState = true;
-               String msg = "§f§lModules:§r §7[§lBypass§r§7]: Intave скорее всего обезврежен.";
+               String msg = "§f§lModules:§r §7[§lBypass§r§7]: Intave is most likely neutralized.";
                Client.msg(msg, false);
                checkReceiveTimer.reset();
             }
 
             if (canCheckSitCommand && checkReceiveTimer.hasReached((float)getReceiveTimeout())) {
-               String msg = "§f§lModules:§r §7[§lBypass§r§7]: дисаблер IntaveMove не сработает,";
+               String msg = "§f§lModules:§r §7[§lBypass§r§7]: the IntaveMove disabler will not work,";
                Client.msg(msg, false);
-               msg = "§f§lModules:§r §7[§lBypass§r§7]: возможно стоит перезайти на сервер.";
+               msg = "§f§lModules:§r §7[§lBypass§r§7]: Perhaps it is worth relogging to the server.";
                Client.msg(msg, false);
                checkReceiveTimer.reset();
                canCheckSitCommand = false;
@@ -137,7 +137,7 @@ public class IntaveDisabler {
          }
       } else if (disableState || sitCommandFound) {
          if (disableState) {
-            String msg = "§f§lModules:§r §7[§lBypass§r§7]: Intave дисаблер отключен.";
+            String msg = "§f§lModules:§r §7[§lBypass§r§7]: Intave disabler is disabled.";
             Client.msg(msg, false);
             disableState = false;
             sitTicks = 0;
@@ -157,7 +157,7 @@ public class IntaveDisabler {
             .toList();
          if (outPut.stream().anyMatch(out -> out.toLowerCase().endsWith("lay"))) {
             sitCommandFound = true;
-            String msg = "§f§lModules:§r §7[§lBypass§r§7]: произвожу попытку обезвреживания Intave.";
+            String msg = "§f§lModules:§r §7[§lBypass§r§7]: Attempting to neutralize Intave.";
             Client.msg(msg, false);
             canCheckSitCommand = false;
          }
@@ -185,7 +185,7 @@ public class IntaveDisabler {
             disableState = false;
             sitCommandFound = false;
             canCheckSitCommand = true;
-            msg = "§f§lModules:§r §7[§lBypass§r§7]: произвожу повтор обезвреживания Intave.";
+            msg = "§f§lModules:§r §7[§lBypass§r§7]: Repeating the neutralization of Intave.";
             Client.msg(msg, false);
          }
       }

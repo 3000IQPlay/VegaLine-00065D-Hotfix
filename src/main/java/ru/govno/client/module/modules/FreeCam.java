@@ -199,8 +199,8 @@ public class FreeCam extends Module {
                   mc.renderGlobal.loadRenderers();
                }
             } catch (Exception var4) {
-               Client.msg("Что-то пошло не так.", true);
-               System.out.println(this.name + " Что-то пошло не так.");
+               Client.msg("Something went wrong.", true);
+               System.out.println(this.name + " Something went wrong.");
             }
          } else {
             Minecraft.player.setPositionAndUpdate(this.oldX, this.oldY, this.oldZ);

@@ -7,6 +7,8 @@ import net.minecraft.entity.EntityLivingBase;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class WorldInfo extends Command {
    public WorldInfo() {
       super("WorldInfo", new String[]{"world", "w"});

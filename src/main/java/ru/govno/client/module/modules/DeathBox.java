@@ -492,7 +492,7 @@ public class DeathBox extends Module {
       if (mc.world != null && Minecraft.player != null) {
          if (!this.Players.getBool() && !this.Mobs.getBool()) {
             this.toggle(false);
-            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7включите что-нибудь в настройках.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7First enable something in the settings.", false);
          } else {
             this.processingDeathEntities(this.Players.getBool(), this.Mobs.getBool());
             this.getDeathBoxesList().forEach(DeathBox.Box::updateStatus);

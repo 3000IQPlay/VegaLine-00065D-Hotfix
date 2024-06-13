@@ -106,7 +106,7 @@ import ru.govno.client.module.modules.Xray;
 import ru.govno.client.newfont.Fonts;
 import ru.govno.client.utils.CrystalField;
 
-// TODO: Translation
+// TODO: Translate
 
 public class ModuleManager {
    public List<Module> modules = new ArrayList<>();

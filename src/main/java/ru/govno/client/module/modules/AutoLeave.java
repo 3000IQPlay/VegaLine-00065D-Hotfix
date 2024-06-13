@@ -59,10 +59,10 @@ public class AutoLeave extends Module {
 
    private final void msg(EntityPlayer e) {
       if (e == null) {
-         Client.msg("§f§lModules:§r §7[§lAutoLeave§r§7]: У вас осталось " + (int)Minecraft.player.getHealth() + "ХП.", false);
+         Client.msg("§f§lModules:§r §7[§lAutoLeave§r§7]: You have " + (int)Minecraft.player.getHealth() + "HP left.", false);
       } else {
-         Client.msg("§f§lModules:§r §7[§lAutoLeave§r§7]: Рядом с вами нежелательный игрок", false);
-         Client.msg("§7Его имя: " + e.getDisplayName().getFormattedText(), false);
+         Client.msg("§f§lModules:§r §7[§lAutoLeave§r§7]: There's an unwanted player near you", false);
+         Client.msg("§7His nick: " + e.getDisplayName().getFormattedText(), false);
          this.ab = e.getDisplayName().getFormattedText();
       }
    }
@@ -77,9 +77,9 @@ public class AutoLeave extends Module {
          Minecraft.player.connection.preSendPacket(new CPacketChatMessage("/logout"));
       } else if (type.equalsIgnoreCase("disconnect")) {
          if (isPlayer) {
-            mc.world.sendQuittingDisconnectingPacket("§f§lModules:§r §7[§lAutoLeave§r§7]: Обнаружен нежелательный игрок с ником: " + this.ab);
+            mc.world.sendQuittingDisconnectingPacket("§f§lModules:§r §7[§lAutoLeave§r§7]: Unwanted player detected with nickname: " + this.ab);
          } else {
-            mc.world.sendQuittingDisconnectingPacket("§f§lModules:§r §7[§lAutoLeave§r§7]: У вас осталось " + (int)Minecraft.player.getHealth() + "ХП.");
+            mc.world.sendQuittingDisconnectingPacket("§f§lModules:§r §7[§lAutoLeave§r§7]: You have " + (int)Minecraft.player.getHealth() + "HP left.");
          }
       }
 

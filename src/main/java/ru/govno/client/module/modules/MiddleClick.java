@@ -137,7 +137,7 @@ public class MiddleClick extends Module {
                String name = mc.pointedEntity.getDisplayName() == null ? mc.pointedEntity.getName() : mc.pointedEntity.getDisplayName().getUnformattedText();
                if (Client.friendManager.getFriends().stream().anyMatch(paramFriend -> paramFriend.getName().equals(mc.pointedEntity.getName()))) {
                   Client.friendManager.getFriends().remove(Client.friendManager.getFriend(mc.pointedEntity.getName()));
-                  Client.msg("§f§lModules:§r §7[§lMiddleClick§r§7]: §r" + name + " §cудалён из друзей!§r", false);
+                  Client.msg("§f§lModules:§r §7[§lMiddleClick§r§7]: §r" + name + " §removed from friends!§r", false);
                   if (Notifications.get.actived) {
                      Notifications.Notify.spawnNotify(name, Notifications.type.FDEL);
                   }
@@ -145,7 +145,7 @@ public class MiddleClick extends Module {
                   ClientTune.get.playFriendUpdateSong(false);
                } else {
                   Client.friendManager.addFriend(mc.pointedEntity.getName());
-                  Client.msg("§f§lModules:§r §7[§lMiddleClick§r§7]: §r" + name + " §aдобавлен в друзья!§r", false);
+                  Client.msg("§f§lModules:§r §7[§lMiddleClick§r§7]: §r" + name + " §aadded as a friend!§r", false);
                   if (Notifications.get.actived) {
                      Notifications.Notify.spawnNotify(name, Notifications.type.FADD);
                   }

@@ -301,7 +301,7 @@ public class DashTrail extends Module {
          if (baseIn != null) {
             if (!this.Self.getBool() && !this.Players.getBool() && !this.Friends.getBool()) {
                this.toggle(false);
-               Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7включите что-нибудь в настройках.", false);
+               Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7First enable something in the settings.", false);
             } else if (this.Self.getBool() && baseIn instanceof EntityPlayerSP
                || (this.Players.getBool() || this.Friends.getBool())
                   && baseIn instanceof EntityOtherPlayerMP mp

@@ -21,7 +21,7 @@ public class DiscordRP {
          @Override
          public void apply(DiscordUser user) {
             System.out.println("Websome " + user.username + "#" + user.discriminator + ".");
-            DiscordRP.this.update("Загрузка...", "Ещё чуть-чуть");
+            DiscordRP.this.update("Loading...", "A little bit more");
          }
       }).build();
       DiscordRPC.discordInitialize("1054570317726617711", handlers, true);
@@ -45,7 +45,7 @@ public class DiscordRP {
       if (!Panic.stop) {
          if (this.firstLine != null && this.secondLine != null) {
             DiscordRichPresence.Builder b = new DiscordRichPresence.Builder(this.secondLine + this.mods());
-            b.setBigImage("large", "Версия" + Client.version.replace("00", "").trim() + " | Бета " + Client.version.replace("00", "0"));
+            b.setBigImage("large", "Version" + Client.version.replace("00", "").trim() + " | Beta " + Client.version.replace("00", "0"));
             b.setSmallImage("large2", ViaMCP.INSTANCE.getViaPanel().getCurrentProtocol().getName());
             b.setDetails(this.firstLine);
             b.setStartTimestamps(this.created);
@@ -57,7 +57,7 @@ public class DiscordRP {
    public void replace() {
       if (this.firstLine != null && this.secondLine != null) {
          DiscordRichPresence.Builder b = new DiscordRichPresence.Builder(this.secondLine + this.mods());
-         b.setBigImage("large", "Версия" + Client.version.replace("00", "").trim() + " | Бета " + Client.version.replace("00", "0"));
+         b.setBigImage("large", "Version" + Client.version.replace("00", "").trim() + " | Beta " + Client.version.replace("00", "0"));
          b.setSmallImage("large2", ViaMCP.INSTANCE.getViaPanel().getCurrentProtocol().getName());
          b.setDetails(this.firstLine);
          b.setStartTimestamps(this.created);
@@ -69,7 +69,7 @@ public class DiscordRP {
 
    private String mods() {
       return Client.moduleManager != null
-         ? " | Моды: " + Client.moduleManager.getEnabledModulesCount() + "/" + Client.moduleManager.getModuleList().size()
+         ? " | Modules: " + Client.moduleManager.getEnabledModulesCount() + "/" + Client.moduleManager.getModuleList().size()
          : "";
    }
 
@@ -81,7 +81,7 @@ public class DiscordRP {
       }
 
       DiscordRichPresence.Builder b = new DiscordRichPresence.Builder(secondLine);
-      b.setBigImage("large", "Версия" + Client.version.replace("00", "").trim() + " | Бета " + Client.version.replace("00", "0"));
+      b.setBigImage("large", "Version" + Client.version.replace("00", "").trim() + " | Beta " + Client.version.replace("00", "0"));
       b.setSmallImage("large2", ViaMCP.INSTANCE.getViaPanel().getCurrentProtocol().getName());
       b.setDetails(firstLine);
       b.setStartTimestamps(this.created);

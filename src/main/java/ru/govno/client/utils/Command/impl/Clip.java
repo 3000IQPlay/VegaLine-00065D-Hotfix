@@ -23,6 +23,8 @@ import ru.govno.client.utils.Command.Command;
 import ru.govno.client.utils.Math.MathUtils;
 import ru.govno.client.utils.Math.TimerHelper;
 
+// TODO: Translate
+
 public class Clip extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
    static double ty = 0.0;

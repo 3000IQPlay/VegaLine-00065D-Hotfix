@@ -72,7 +72,7 @@ public class ComfortUi extends Module {
       if (apply && Config.isShaders()) {
          this.BetterButtons.setBool(false);
          ClientTune.get.playGuiScreenCheckBox(false);
-         Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: выключите шейдеры для использования BetterButtons.", false);
+         Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Turn off shaders to use BetterButtons.", false);
       }
 
       return apply;

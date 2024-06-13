@@ -7,6 +7,8 @@ import ru.govno.client.Client;
 import ru.govno.client.module.Module;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Bind extends Command {
    public Bind() {
       super("Bind", new String[]{"bind", "b", "bnd", "unbind", "unb"});

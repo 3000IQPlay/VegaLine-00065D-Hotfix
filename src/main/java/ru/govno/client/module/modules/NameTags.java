@@ -53,6 +53,8 @@ import ru.govno.client.utils.Math.ReplaceStrUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
+// TODO: Translate
+
 public class NameTags extends Module {
    public static NameTags get;
    public BoolSettings Items;
@@ -137,7 +139,7 @@ public class NameTags extends Module {
       }
 
       if (Client.friendManager.isFriend(entity.getName())) {
-         name = "§aДруг§7 | §r" + gm + name;
+         name = "§aAnother§7 | §r" + gm + name;
       } else {
          name = gm + name;
       }

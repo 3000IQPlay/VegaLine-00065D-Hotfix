@@ -9,6 +9,8 @@ import net.minecraft.util.Session;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Login extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
    private static final String alphabet = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890";

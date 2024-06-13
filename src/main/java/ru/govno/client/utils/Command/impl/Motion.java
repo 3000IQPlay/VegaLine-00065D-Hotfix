@@ -6,6 +6,8 @@ import net.minecraft.util.math.MathHelper;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Motion extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

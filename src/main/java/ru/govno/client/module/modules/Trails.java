@@ -216,7 +216,7 @@ public class Trails extends Module {
          boolean all = targets.startsWith("All");
          if (dash.Self.getBool() && self || (dash.Players.getBool() || dash.Friends.getBool()) && all) {
             this.toggle(false);
-            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7придётся сразнить настройки таргетов с DashTrail.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: §7you will have to enable the Target setting in DashTrails.", false);
             return;
          }
       }

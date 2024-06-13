@@ -9,6 +9,8 @@ import net.minecraft.client.Minecraft;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Server extends Command {
    public Server() {
       super("Server", new String[]{"ip", "online", "onl", "ping", "delay", "version", "ver"});

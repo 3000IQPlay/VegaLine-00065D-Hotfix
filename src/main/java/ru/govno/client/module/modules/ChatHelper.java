@@ -23,6 +23,8 @@ import ru.govno.client.module.settings.FloatSettings;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.utils.Math.TimerHelper;
 
+// TODO: Translate
+
 public class ChatHelper extends Module {
    public static ChatHelper get;
    public BoolSettings CensureText;
@@ -105,7 +107,7 @@ public class ChatHelper extends Module {
          && event.getPacket() instanceof SPacketChat packet
          && (packet.chatComponent.getFormattedText().startsWith("${") || packet.chatComponent.getFormattedText().contains("}"))) {
          event.setCancelled(true);
-         Minecraft.player.addChatMessage(new TextComponentString("Log4jFixer удалил опасное сообщение."));
+         Minecraft.player.addChatMessage(new TextComponentString("Log4jFixer deleted the dangerous message."));
       }
 
       if (this.AutoLogin.getBool() && event.getPacket() instanceof SPacketChat packet) {
@@ -177,14 +179,14 @@ public class ChatHelper extends Module {
          String pass = this.LoginPass.currentMode;
          if (this.isReg) {
             Minecraft.player.sendChatMessage("/register " + pass + " " + pass);
-            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Регистрирую аккаунт.", false);
+            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Register an account.", false);
             StringSelection selection = new StringSelection(pass);
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             clipboard.setContents(selection, selection);
-            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Пароль скопирован в буффер обмена.", false);
+            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: The password has been copied to the clipboard.", false);
          } else {
             Minecraft.player.sendChatMessage("/login " + pass);
-            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Авторизовываю аккаунт.", false);
+            Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Logged into the account.", false);
          }
 
          this.toReg = false;
@@ -192,7 +194,7 @@ public class ChatHelper extends Module {
 
       if (this.accept && this.AutoTpaAccept.getBool()) {
          Minecraft.player.sendChatMessage("/tpaccept");
-         Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Принимаю телепорт.", false);
+         Client.msg("§f§lModules:§r §7[§lChatHelper§r§7]: Accepted teleport request.", false);
          this.accept = false;
       }
 

@@ -200,13 +200,13 @@ public class Spider extends Module {
 
    String trouble() {
       if (mc.playerController.getCurrentGameType() == GameType.ADVENTURE) {
-         return "§f§lModules:§r §7[§lSpider§r§7]: У вас гм 2.";
+         return "§f§lModules:§r §7[§lSpider§r§7]: You are in GM 2.";
       } else if (mc.playerController.getCurrentGameType() == GameType.SPECTATOR) {
-         return "§f§lModules:§r §7[§lSpider§r§7]: У вас гм 3.";
+         return "§f§lModules:§r §7[§lSpider§r§7]: You are in GM 3.";
       } else {
          return !InventoryHelper.doesHotbarHaveBlock()
-            ? "§f§lModules:§r §7[§lSpider§r§7]: У вас нет блока."
-            : "§f§lModules:§r §7[§lSpider§r§7]: Что-то не так...";
+            ? "§f§lModules:§r §7[§lSpider§r§7]: You don't have a blocks."
+            : "§f§lModules:§r §7[§lSpider§r§7]: Something's wrong...";
       }
    }
 

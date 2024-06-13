@@ -8,6 +8,8 @@ import net.minecraft.network.play.client.CPacketVehicleMove;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class RidingDRSync extends Command {
    private Entity ridingEntity;
 

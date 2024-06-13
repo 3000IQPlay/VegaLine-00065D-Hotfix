@@ -13,8 +13,8 @@ public class GetCommands extends Command {
       try {
          Client.moduleManager.getModule("STabMonitor").toggleSilent(true);
       } catch (Exception var3) {
-         Client.msg("§5§lGetCommands:§r §7Комманда написана неверно.", false);
-         Client.msg("§5§lGetCommands:§r §7use: getcommands/getcom/gc", false);
+         Client.msg("§5§lGetCommands:§r §7The command was written incorrectly.", false);
+         Client.msg("§5§lGetCommands:§r §7Use: getcommands/getcom/gc", false);
          var3.printStackTrace();
       }
    }

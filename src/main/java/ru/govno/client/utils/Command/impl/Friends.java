@@ -16,6 +16,8 @@ import ru.govno.client.module.modules.FreeCam;
 import ru.govno.client.module.modules.Notifications;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Friends extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

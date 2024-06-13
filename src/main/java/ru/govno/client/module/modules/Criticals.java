@@ -64,7 +64,7 @@ public class Criticals extends Module {
    @Override
    public void onUpdate() {
       if (!this.EntityHit.getBool() && !this.Bowing.getBool()) {
-         Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Сначала включите что-нибудь в настройках.", false);
+         Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: First enable something in the settings.", false);
          this.toggle(false);
       } else {
          if (doAddPacket && yawS != 9.0F && pitchS != 0.0F) {
@@ -351,7 +351,7 @@ public class Criticals extends Module {
    private void damageMultiply(boolean successfully, int packetsCount, boolean sendFakeMassage) {
       if (!successfully) {
          if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Не могу увеличить урон лука.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Can't increase bow damage.", false);
          }
       } else {
          float yaw = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[0] : Minecraft.player.rotationYaw;
@@ -379,7 +379,7 @@ public class Criticals extends Module {
 
                Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(yaw, 4.2F, false));
             } else {
-               Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: У вас нет элитры в инвентаре.", false);
+               Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: You do not have elytra in your inventory.", false);
             }
          } else {
             Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
@@ -397,7 +397,7 @@ public class Criticals extends Module {
          }
 
          if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Увеличваю урон лука.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Increased bow damage.", false);
          }
 
          this.usingProgress.setAnim(0.0F);

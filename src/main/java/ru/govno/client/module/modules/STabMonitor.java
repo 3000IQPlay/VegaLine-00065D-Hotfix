@@ -72,11 +72,11 @@ public class STabMonitor extends Module {
 
             outPutFiltered.sort(String.CASE_INSENSITIVE_ORDER);
             if (outPutFiltered.isEmpty()) {
-               Client.msg("§b§lWorldInfo:§r §7неудалось получить результат.", false);
+               Client.msg("§b§lWorldInfo:§r §7Failed to get result.", false);
                return;
             }
 
-            Client.msg("§b§lWorldInfo:§r §7результатов найдено -> " + outPutFiltered.size() + ":", false);
+            Client.msg("§b§lWorldInfo:§r §7Results found -> " + outPutFiltered.size() + ":", false);
             int number = 0;
 
             for (String result : outPutFiltered) {
@@ -86,7 +86,7 @@ public class STabMonitor extends Module {
             return;
          }
 
-         Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: неудалось получить результат.", false);
+         Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7]: Failed to get result.", false);
       }
    }
 

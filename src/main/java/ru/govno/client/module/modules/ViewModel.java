@@ -187,7 +187,7 @@ public class ViewModel extends Module {
          if (Config.isShaders()) {
             get.HandsGlow.setBool(false);
             ClientTune.get.playGuiScreenCheckBox(false);
-            Client.msg("§f§lModules:§r §7[§l" + get.name + "§r§7]: выключите шейдеры для использования GlowHands.", false);
+            Client.msg("§f§lModules:§r §7[§l" + get.name + "§r§7]: Turn off shaders to use GlowHands.", false);
          }
 
          int pickC = get.GlowPickColor.color;

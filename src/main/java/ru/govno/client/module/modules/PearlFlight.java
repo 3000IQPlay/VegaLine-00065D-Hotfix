@@ -82,7 +82,7 @@ public class PearlFlight extends Module {
          }
 
          if (!can) {
-            Client.msg("§f§lModules:§r §7[§lPearlFlight§r§7]: У вас нет эндержемчуга.", false);
+            Client.msg("§f§lModules:§r §7[§lPearlFlight§r§7]: You don't have ender pearls.", false);
             this.toggle(false);
          }
 

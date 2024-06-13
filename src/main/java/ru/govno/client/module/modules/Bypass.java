@@ -232,7 +232,7 @@ public class Bypass extends Module {
       if (Minecraft.player.fallDistance != 0.0F && !((double)Minecraft.player.fallDistance < 0.4) && !(MoveMeHelp.getSpeed() > 0.1)) {
          this.lastVecNote = new Vec3d((double)x, (double)y, (double)z);
          Minecraft.player.connection.preSendPacket(new CPacketPlayer.Position((double)x, (double)y + 0.19, (double)z, true));
-         Client.msg("§f§lModules:§r §7[§lDisabler§r§7]: пытаюсь выключить Vulcan.", false);
+         Client.msg("§f§lModules:§r §7[§lDisabler§r§7]: Trying to disable Vulcan.", false);
          this.noted = true;
       }
    }
@@ -332,7 +332,7 @@ public class Bypass extends Module {
          if (Minecraft.player.ticksExisted > 30 && !this.noted && !this.strafeHacked && this.waterNeared() != null) {
             this.note();
          } else if (!this.noted && Minecraft.player.ticksExisted == 5 && mc.world != null && (mc.world == null || mc.world.getWorldType() != WorldType.FLAT)) {
-            Client.msg("§f§lModules:§r §7[§lDisabler§r§7]: подойди к воде.", false);
+            Client.msg("§f§lModules:§r §7[§lDisabler§r§7]: Go to the water.", false);
          }
       } else if (this.noted || this.strafeHacked) {
          this.noted = false;
@@ -469,9 +469,9 @@ public class Bypass extends Module {
             Minecraft.player.connection.sendPacket(new CPacketResourcePackStatus(CPacketResourcePackStatus.Action.ACCEPTED));
             Minecraft.player.connection.sendPacket(new CPacketResourcePackStatus(CPacketResourcePackStatus.Action.SUCCESSFULLY_LOADED));
             event.setCancelled(true);
-            Client.msg("§f§lModules:§r §7[§lBypass§r§7]: Сервер просит установку пакета", false);
-            Client.msg("§7ответ запрос был подменен на ложный", false);
-            Client.msg("§7необходимость установки была игнорирована игрой.", false);
+            Client.msg("§f§lModules:§r §7[§lBypass§r§7]: The server asks to install the package.", false);
+            Client.msg("§7The request response was replaced with a false one.", false);
+            Client.msg("§7The need for installation was ignored by the game.", false);
          }
 
          if (event.getPacket() instanceof SPacketPlayerPosLook look && this.SpawnGodmode.getBool()) {
@@ -507,11 +507,11 @@ public class Bypass extends Module {
                this.noted = false;
                Minecraft.player.ticksExisted = 0;
                this.strafeHacked = false;
-               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: выключить Vulcan не удалось.", false);
-               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: попытаюсь ещё раз.", false);
+               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: Vulcan couldn't get disabled.", false);
+               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: Trying again.", false);
             } else if (this.noted && !this.strafeHacked) {
                this.strafeHacked = true;
-               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: античит Vulcan выключен.", false);
+               Client.msg("§f§lModules:§r §7[§lBypass§r§7]: Vulcan anti-cheat is disabled", false);
             }
          }
 

@@ -380,7 +380,7 @@ public class OffHand extends Module {
          try {
             ping = MathUtils.clamp(mc.getConnection().getPlayerInfo(Minecraft.player.getUniqueID()).getResponseTime(), 0, 1000);
          } catch (Exception var3) {
-            System.out.println("Module-OffHand: Vegaline failled check ping");
+            System.out.println("Module-OffHand: Vegaline failled to check ping");
          }
       }
 

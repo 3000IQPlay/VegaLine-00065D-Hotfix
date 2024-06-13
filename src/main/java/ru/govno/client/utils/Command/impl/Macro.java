@@ -7,6 +7,8 @@ import ru.govno.client.utils.Command.Command;
 import ru.govno.client.utils.MacroMngr.Macros;
 import ru.govno.client.utils.MacroMngr.MacrosManager;
 
+// TODO: Translate
+
 public class Macro extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

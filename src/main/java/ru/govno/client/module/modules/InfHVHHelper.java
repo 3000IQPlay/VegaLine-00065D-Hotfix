@@ -35,6 +35,8 @@ import ru.govno.client.module.settings.BoolSettings;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.utils.Math.TimerHelper;
 
+// TODO: Translate
+
 public class InfHVHHelper extends Module {
    private final BoolSettings AutoDuel;
    private final BoolSettings AutoDuelOnlySneak;

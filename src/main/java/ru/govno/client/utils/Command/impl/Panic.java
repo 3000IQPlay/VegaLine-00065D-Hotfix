@@ -28,6 +28,8 @@ import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
+// TODO: Translate
+
 public class Panic extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
    public static boolean stop = false;

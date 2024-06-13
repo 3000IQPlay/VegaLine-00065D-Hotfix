@@ -13,6 +13,8 @@ import ru.govno.client.module.settings.Settings;
 import ru.govno.client.utils.Command.Command;
 import ru.govno.client.utils.Render.ColorUtils;
 
+// TODO: Translate
+
 public class Modules extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

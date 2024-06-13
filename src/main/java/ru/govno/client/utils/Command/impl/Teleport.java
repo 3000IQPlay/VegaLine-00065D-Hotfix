@@ -7,6 +7,8 @@ import net.minecraft.network.play.client.CPacketPlayer;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Teleport extends Command {
    private static final Minecraft mc = Minecraft.getMinecraft();
 

@@ -191,11 +191,11 @@ public class HighJump extends Module {
          this.toggle(false);
       } else {
          if (!Minecraft.player.onGround) {
-            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7] §7находитесь на земле.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7] §get on ground first.", false);
          }
 
          if (this.MotionY.getFloat() == 0.0F) {
-            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7] §7насройка излишне мала.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.getName() + "§r§7] §7number too small.", false);
          }
 
          this.toggle(false);

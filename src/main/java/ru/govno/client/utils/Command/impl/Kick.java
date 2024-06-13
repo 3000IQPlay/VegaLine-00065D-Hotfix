@@ -10,6 +10,8 @@ import net.minecraft.util.math.BlockPos;
 import ru.govno.client.Client;
 import ru.govno.client.utils.Command.Command;
 
+// TODO: Translate
+
 public class Kick extends Command {
    public Kick() {
       super("Kick", new String[]{"kick", "k"});
