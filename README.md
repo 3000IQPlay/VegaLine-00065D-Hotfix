@@ -1,7 +1,7 @@
 # VegaLine 00043R Buildable - by 3000IQPlay
 
 **TODO:**
-- Translate the entire client from Russian to English
+- Translate the entire client from Russian to English (Only classes that have "// TODO: Translate")
 - Compress Cape images into a Gif
 - Fix binding (GUI gets oppened on pressing Ctrl and Alt Gr on default)
 
