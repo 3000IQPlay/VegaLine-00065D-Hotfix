@@ -56,15 +56,9 @@ public class ClickGui extends Module {
                this,
                new String[]{
                   "Nolik",
-                  "Succubbus",
-                  "SuccubbusHot",
                   "AstolfoHot",
-                  "Furry",
                   "Lake",
                   "Kiskis",
-                  "IceGirl",
-                  "LoliGirl",
-                  "LoliGirl2",
                   "PandaPo",
                   "Sage",
                   "SonicGenerations",
@@ -230,7 +224,7 @@ public class ClickGui extends Module {
          if (Config.isShaders() && this.BlurBackground.getBool()) {
             this.BlurBackground.setBool(false);
             ClientTune.get.playGuiScreenCheckBox(false);
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: выключите шейдеры для использования BlurBackground.", false);
+            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Turn off shaders to use BlurBackground.", false);
          }
       }
    }
