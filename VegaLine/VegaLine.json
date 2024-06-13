@@ -1,0 +1,37 @@
+{
+  "id": "VegaLine",
+  "family": "Forge-unknown",
+  "time": "2024-03-20T10:56:09.273Z",
+  "releaseTime": "2017-09-18T08:39:46Z",
+  "type": "modified",
+  "minecraftArguments": "--username ${auth_player_name} --version ${version_name} --gameDir ${game_directory} --assetsDir ${assets_root} --assetIndex ${assets_index_name} --uuid ${auth_uuid} --accessToken ${auth_access_token} --userProperties ${user_properties} --userType ${user_type}  --tweakClass optifine.OptiFineTweaker",
+  "mainClass": "net.minecraft.client.main.Main",
+  "minimumLauncherVersion": 14,
+  "tlauncherVersion": 0,
+  "libraries": [],
+  "downloads": {},
+  "assetIndex": {
+    "totalSize": 129843781,
+    "id": "1.12",
+    "known": true,
+    "url": "https://piston-meta.mojang.com/v1/packages/a21e1ded1a24ea1548dd8db0cf30b6acb02655a9/1.12.json",
+    "size": 143136
+  },
+  "assets": "1.12",
+  "javaVersion": {
+    "component": "jre-legacy",
+    "majorVersion": 8
+  },
+  "logging": {
+    "client": {
+      "argument": "-Dlog4j.configurationFile\u003d${path}",
+      "file": {
+        "id": "client-1.12.xml",
+        "url": "https://piston-data.mojang.com/v1/objects/bd65e7d2e3c237be76cfbef4c2405033d7f91521/client-1.12.xml",
+        "sha1": "bd65e7d2e3c237be76cfbef4c2405033d7f91521",
+        "size": 888
+      },
+      "type": "log4j2-xml"
+    }
+  }
+}

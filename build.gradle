@@ -1,0 +1,43 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.6.10'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    group = 'dev.iq'
+    version = '00043R'
+
+    compileJava {
+        sourceCompatibility = targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    compileKotlin {
+        kotlinOptions.jvmTarget = JavaVersion.VERSION_17
+    }
+
+    compileTestKotlin {
+        kotlinOptions.jvmTarget = JavaVersion.VERSION_17
+    }
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { url 'https://oss.sonatype.org/content/groups/public/' }
+    }
+
+    dependencies {
+        implementation files('libs/libs.jar')
+    }
+}
+
+jar {
+    manifest {
+        attributes(
+                'Manifest-Version': '1.0',
+                'Main-Class': 'Start',
+        )
+    }
+}
