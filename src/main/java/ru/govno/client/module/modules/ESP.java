@@ -12,11 +12,12 @@ import java.util.stream.Collectors;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector4d;
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockChest;
+import net.minecraft.block.BlockChest.Type;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.model.ModelEnderCrystal;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -25,6 +26,8 @@ import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.GlStateManager.DestFactor;
+import net.minecraft.client.renderer.GlStateManager.SourceFactor;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.shader.Framebuffer;
@@ -61,14 +64,13 @@ import org.lwjgl.util.glu.GLU;
 import ru.govno.client.module.Module;
 import ru.govno.client.module.settings.BoolSettings;
 import ru.govno.client.module.settings.ColorSettings;
-import ru.govno.client.module.settings.FloatSettings;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.newfont.CFontRenderer;
 import ru.govno.client.newfont.Fonts;
 import ru.govno.client.utils.CrystalField;
-import ru.govno.client.utils.Combat.RotationUtil;
 import ru.govno.client.utils.Command.impl.Panic;
 import ru.govno.client.utils.Math.MathUtils;
+import ru.govno.client.utils.Math.ReplaceStrUtils;
 import ru.govno.client.utils.Math.TimerHelper;
 import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
@@ -76,8 +78,6 @@ import ru.govno.client.utils.Render.RenderUtils;
 import ru.govno.client.utils.Render.ShaderUtil2;
 import ru.govno.client.utils.Render.ShaderUtility;
 import ru.govno.client.utils.Render.Vec2fColored;
-
-// TODO: Translate
 
 public class ESP extends Module {
    public static ESP get;
@@ -87,7 +87,6 @@ public class ESP extends Module {
    public BoolSettings CrystalImprove;
    public BoolSettings Players;
    public BoolSettings Self;
-   public BoolSettings GlowBloom;
    public BoolSettings ItemsI;
    public BoolSettings EnderPearl;
    public BoolSettings Spawner;
@@ -98,8 +97,6 @@ public class ESP extends Module {
    public BoolSettings Targets;
    public BoolSettings VoidHighlight;
    public BoolSettings Portals;
-   public FloatSettings GlowRadius;
-   public FloatSettings BloomAmount;
    public ModeSettings PlayerMode;
    public ModeSettings SelfMode;
    public ModeSettings TntMode;
@@ -110,14 +107,26 @@ public class ESP extends Module {
    public ColorSettings PickHurt;
    private final ResourceLocation BLOOM_TEX = new ResourceLocation("vegaline/modules/" + this.name.toLowerCase() + "/bloomsimulate/bloom.png");
    private final ShaderUtil2 glowShader = new ShaderUtil2("vegaline/modules/esp/shaders/anglecoloredglow.frag");
-   Framebuffer framebuffer;
-   Framebuffer glowFrameBuffer;
+   private Framebuffer framebuffer1;
+   private Framebuffer glowFrameBuffer1;
    private final IntBuffer viewport = GLAllocation.createDirectIntBuffer(16);
    private final FloatBuffer modelview = GLAllocation.createDirectFloatBuffer(16);
    private final FloatBuffer projection = GLAllocation.createDirectFloatBuffer(16);
    private final FloatBuffer vector = GLAllocation.createDirectFloatBuffer(4);
    List<EntityLivingBase> updatedTargets = new ArrayList<>();
    List<ESP.TESP> TESP_LIST = new ArrayList<>();
+   List<EntityPlayer> players3dEList = new ArrayList<>();
+   List<EntityPlayer> players2dEList = new ArrayList<>();
+   List<EntityItem> itemsEList = new ArrayList<>();
+   List<EntityEnderPearl> enderPearlsEList = new ArrayList<>();
+   List<EntityEnderCrystal> crystalsEList = new ArrayList<>();
+   List<EntityTNTPrimed> tnt3dEList = new ArrayList<>();
+   List<EntityTNTPrimed> tnt2dEList = new ArrayList<>();
+   List<TileEntityMobSpawner> spawnersEList = new ArrayList<>();
+   List<TileEntityBeacon> beaconsEList = new ArrayList<>();
+   List<TileEntity> storages3dEList = new ArrayList<>();
+   List<TileEntity> storagesTempEList = new ArrayList<>();
+   List<TileEntityEndPortal> endPortalsEList = new ArrayList<>();
    private final List<ESP.ColVecsWithEnt> colVecsWithEntList = new ArrayList<>();
    private final ResourceLocation TARGET_2D_ESP = new ResourceLocation("vegaline/modules/esp/target/quadstapple.png");
    private final ResourceLocation TARGET_2D_ESP2 = new ResourceLocation("vegaline/modules/esp/target/fuckfinger.png");
@@ -156,60 +165,17 @@ public class ESP extends Module {
       this.settings.add(this.EnderCrystals = new BoolSettings("Ender crystals", false, this));
       this.settings.add(this.CrystalImprove = new BoolSettings("Crystal improve", true, this));
       this.settings.add(this.Players = new BoolSettings("Players", true, this));
-      this.settings.add(this.PlayerMode = new ModeSettings("Player mode", "Glow", this, new String[]{"2D", "Glow"}, () -> this.Players.getBool()));
-      this.settings.add(this.Self = new BoolSettings("Self", true, this));
-      this.settings.add(this.SelfMode = new ModeSettings("Self mode", "Glow", this, new String[]{"2D", "Glow"}, () -> this.Self.getBool()));
-      this.settings
-         .add(
-            this.GlowRadius = new FloatSettings(
-               "Glow radius",
-               4.0F,
-               15.0F,
-               2.0F,
-               this,
-               () -> this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("Glow")
-                     || this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("Glow")
-                     || this.EnderCrystals.getBool()
-                     || this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("Glow")
-            )
-         );
-      this.settings
-         .add(
-            this.GlowBloom = new BoolSettings(
-               "Glow bloom",
-               true,
-               this,
-               () -> this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("Glow")
-                     || this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("Glow")
-                     || this.EnderCrystals.getBool()
-                     || this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("Glow")
-            )
-         );
-      this.settings
-         .add(
-            this.BloomAmount = new FloatSettings(
-               "Bloom amount",
-               1.0F,
-               1.5F,
-               0.5F,
-               this,
-               () -> this.GlowBloom.getBool()
-                     && (
-                        this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("Glow")
-                           || this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("Glow")
-                           || this.EnderCrystals.getBool()
-                           || this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("Glow")
-                     )
-            )
-         );
+      this.settings.add(this.PlayerMode = new ModeSettings("Player mode", "Glow", this, new String[]{"2D", "Glow", "All"}, () -> this.Players.getBool()));
+      this.settings.add(this.Self = new BoolSettings("Self", false, this));
+      this.settings.add(this.SelfMode = new ModeSettings("Self mode", "Glow", this, new String[]{"2D", "Glow", "All"}, () -> this.Self.getBool()));
       this.settings.add(this.ItemsI = new BoolSettings("Items", true, this));
       this.settings.add(this.EnderPearl = new BoolSettings("EnderPearl", true, this));
-      this.settings.add(this.Spawner = new BoolSettings("Spawner", false, this));
-      this.settings.add(this.Storage = new BoolSettings("Storage", true, this));
+      this.settings.add(this.Spawner = new BoolSettings("Spawner", true, this));
+      this.settings.add(this.Storage = new BoolSettings("Storage", false, this));
       this.settings.add(this.BreakOver = new BoolSettings("BreakOver", true, this));
       this.settings.add(this.Beacon = new BoolSettings("Beacon", false, this));
       this.settings.add(this.TntPrimed = new BoolSettings("TntPrimed", false, this));
-      this.settings.add(this.TntMode = new ModeSettings("Tnt mode", "2D", this, new String[]{"2D", "Glow"}, () -> this.TntPrimed.getBool()));
+      this.settings.add(this.TntMode = new ModeSettings("Tnt mode", "2D", this, new String[]{"2D", "Glow", "All"}, () -> this.TntPrimed.getBool()));
       this.settings.add(this.Targets = new BoolSettings("Targets", true, this));
       this.settings
          .add(this.TargetsMode = new ModeSettings("Targets mode", "Shape", this, new String[]{"Shape", "Hologram", "Glare"}, () -> this.Targets.getBool()));
@@ -217,7 +183,7 @@ public class ESP extends Module {
          .add(
             this.TargetTexture = new ModeSettings(
                "Target texture",
-               "TriangleStapple",
+               "TriangleStipple",
                this,
                new String[]{"QuadStapple", "FuckFinger", "TriangleStapple", "TriangleStipple"},
                () -> this.Targets.getBool() && this.TargetsMode.currentMode.equalsIgnoreCase("Shape")
@@ -248,8 +214,8 @@ public class ESP extends Module {
                () -> this.Targets.getBool() && this.TargetColor.currentMode.equalsIgnoreCase("Pick color & hurt")
             )
          );
-      this.settings.add(this.VoidHighlight = new BoolSettings("VoidHighlight", true, this));
-      this.settings.add(this.Portals = new BoolSettings("Portals", true, this));
+      this.settings.add(this.VoidHighlight = new BoolSettings("VoidHighlight", false, this));
+      this.settings.add(this.Portals = new BoolSettings("Portals", false, this));
       get = this;
    }
 
@@ -275,7 +241,6 @@ public class ESP extends Module {
       this.glowShader.setUniformColor("color5", color5);
       this.glowShader.setUniformf("exposure", alpha * 3.0F);
       this.glowShader.setUniformi("avoidTexture", 1);
-      this.glowShader.setUniformf("time", 0.0F);
       FloatBuffer buffer = BufferUtils.createFloatBuffer((int)(radius + 1.0F));
 
       for (int i = 1; (float)i <= radius; i++) {
@@ -306,24 +271,26 @@ public class ESP extends Module {
    private List<EntityLivingBase> getTargets() {
       List<EntityLivingBase> targets = new ArrayList<>();
       if (get.actived) {
-         if (HitAura.TARGET != null) {
+         if (HitAura.TARGET != null && (targets.isEmpty() || targets.stream().noneMatch(base -> base.getEntityId() == HitAura.TARGET.getEntityId()))) {
             targets.add(HitAura.TARGET);
          }
 
          if (!CrystalField.getTargets().isEmpty()) {
-            for (EntityLivingBase Targets : CrystalField.getTargets()) {
-               if (Targets != null) {
-                  targets.add(Targets);
+            for (EntityLivingBase target : CrystalField.getTargets()) {
+               if (target != null && (targets.isEmpty() || targets.stream().noneMatch(base -> base.getEntityId() == target.getEntityId()))) {
+                  targets.add(target);
                }
             }
          }
 
-         if (BowAimbot.target != null) {
+         if (BowAimbot.target != null && (targets.isEmpty() || targets.stream().noneMatch(base -> base.getEntityId() == BowAimbot.target.getEntityId()))) {
             targets.add(BowAimbot.target);
          }
 
          EntityLivingBase thTarget = TargetHUD.getTarget();
-         if (thTarget != null && thTarget != Minecraft.player) {
+         if (thTarget != null
+            && thTarget != Minecraft.player
+            && (targets.isEmpty() || targets.stream().noneMatch(base -> base.getEntityId() == thTarget.getEntityId()))) {
             targets.add(thTarget);
          }
       }
@@ -383,7 +350,121 @@ public class ESP extends Module {
 
    @Override
    public void onUpdate() {
-      this.controlTESPList((List<EntityLivingBase>)(this.TargetsMode.currentMode.equalsIgnoreCase("Hologram") ? this.getTargets() : new ArrayList<>()));
+      this.controlTESPList(
+         (List<EntityLivingBase>)(this.Targets.getBool() && this.TargetsMode.currentMode.equalsIgnoreCase("Hologram") ? this.getTargets() : new ArrayList<>())
+      );
+      this.players3dEList.clear();
+      this.players2dEList.clear();
+      this.itemsEList.clear();
+      this.enderPearlsEList.clear();
+      this.crystalsEList.clear();
+      this.tnt3dEList.clear();
+      this.tnt2dEList.clear();
+      this.spawnersEList.clear();
+      this.beaconsEList.clear();
+      this.storages3dEList.clear();
+      this.storagesTempEList.clear();
+      this.endPortalsEList.clear();
+      if (mc.world != null) {
+         boolean playersRender = this.Players.canBeRender();
+         boolean players = this.Players.getBool();
+         boolean self = this.Self.canBeRender();
+         boolean items = this.ItemsI.canBeRender();
+         boolean enderpearl = this.EnderPearl.canBeRender();
+         boolean endercrystals = this.EnderCrystals.getBool();
+         boolean tnt = this.TntPrimed.getBool();
+         boolean spawner = this.Spawner.canBeRender();
+         boolean beacon = this.Beacon.canBeRender();
+         boolean portal = this.Portals.canBeRender();
+         boolean storage = this.Storage.canBeRender();
+         boolean playersGlow = (this.PlayerMode.getMode().equalsIgnoreCase("Glow") || this.PlayerMode.getMode().equalsIgnoreCase("All")) && players;
+         boolean players2D = this.PlayerMode.getMode().equalsIgnoreCase("2D") || this.PlayerMode.getMode().equalsIgnoreCase("All");
+         boolean selfGlow = (this.SelfMode.getMode().equalsIgnoreCase("Glow") || this.SelfMode.getMode().equalsIgnoreCase("All")) && this.Self.getBool();
+         boolean self2D = this.SelfMode.getMode().equalsIgnoreCase("2D") || this.SelfMode.getMode().equalsIgnoreCase("All");
+         boolean tntGlow = (this.TntMode.getMode().equalsIgnoreCase("Glow") || this.TntMode.getMode().equalsIgnoreCase("All")) && this.TntPrimed.getBool();
+         boolean tnt2D = this.TntMode.getMode().equalsIgnoreCase("2D") || this.TntMode.getMode().equalsIgnoreCase("All");
+         if (playersRender || self || items || enderpearl || endercrystals || tnt) {
+            mc.world.getLoadedEntityList().stream().filter(entity -> !entity.ignoreFrustumCheck).filter(Objects::nonNull).forEach(entity -> {
+               if (entity instanceof EntityOtherPlayerMP player && playersRender) {
+                  if (playersGlow) {
+                     this.players3dEList.add(player);
+                  }
+
+                  if (players2D) {
+                     this.players2dEList.add(player);
+                  }
+
+                  return;
+               }
+
+               if (entity instanceof EntityPlayerSP player && mc.gameSettings.thirdPersonView != 0 && self) {
+                  if (selfGlow) {
+                     this.players3dEList.add(player);
+                  }
+
+                  if (self2D) {
+                     this.players2dEList.add(player);
+                  }
+
+                  return;
+               }
+
+               if (entity instanceof EntityItem item && items) {
+                  this.itemsEList.add(item);
+                  return;
+               }
+
+               if (entity instanceof EntityEnderPearl pearl && enderpearl) {
+                  this.enderPearlsEList.add(pearl);
+                  return;
+               }
+
+               if (entity instanceof EntityEnderCrystal crystal && endercrystals) {
+                  this.crystalsEList.add(crystal);
+                  return;
+               }
+
+               if (entity instanceof EntityTNTPrimed tnt1 && tnt) {
+                  if (tntGlow) {
+                     this.tnt3dEList.add(tnt1);
+                  }
+
+                  if (tnt2D) {
+                     this.tnt2dEList.add(tnt1);
+                  }
+               }
+            });
+         }
+
+         if (spawner || beacon || storage) {
+            mc.world.getLoadedTileEntityList().stream().filter(Objects::nonNull).forEach(tile -> {
+               if (tile instanceof TileEntityMobSpawner spawner1 && spawner) {
+                  this.spawnersEList.add(spawner1);
+                  return;
+               }
+
+               if (tile instanceof TileEntityBeacon beacon1 && beacon) {
+                  this.beaconsEList.add(beacon1);
+                  return;
+               }
+
+               if (tile instanceof TileEntityEndPortal portal1 && portal) {
+                  this.endPortalsEList.add(portal1);
+                  return;
+               }
+
+               if (tile instanceof TileEntityChest || tile instanceof TileEntityEnderChest || tile instanceof TileEntityShulkerBox) {
+                  if (storage) {
+                     this.storages3dEList.add(tile);
+                  }
+
+                  if (spawner) {
+                     this.storagesTempEList.add(tile);
+                  }
+               }
+            });
+         }
+      }
    }
 
    private ESP.ColVecsWithEnt targetESPSPos(EntityLivingBase entity, int index) {
@@ -443,7 +524,7 @@ public class ESP extends Module {
       mc.getTextureManager().bindTexture(resource);
       Tessellator tessellator = Tessellator.getInstance();
       BufferBuilder bufferbuilder = tessellator.getBuffer();
-      bufferbuilder.begin(9, DefaultVertexFormats.POSITION_TEX_COLOR);
+      bufferbuilder.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
       bufferbuilder.pos((double)x, (double)y2).tex(0.0, 1.0).color(c).endVertex();
       bufferbuilder.pos((double)x2, (double)y2).tex(1.0, 1.0).color(c2).endVertex();
       bufferbuilder.pos((double)x2, (double)y).tex(1.0, 0.0).color(c3).endVertex();
@@ -488,16 +569,9 @@ public class ESP extends Module {
          GlStateManager.depthMask(false);
          GlStateManager.enableBlend();
          GlStateManager.shadeModel(7425);
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO);
          this.drawImage(resource, x, y, x2, y2, color, color2, color3, color4);
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          GlStateManager.resetColor();
          GlStateManager.shadeModel(7424);
          GlStateManager.depthMask(true);
@@ -616,28 +690,30 @@ public class ESP extends Module {
 
    private void setupAlphaModule() {
       alphaPC.to = this.actived ? 1.0F : 0.0F;
-      if (this.actived && (double)getAlphaPC() > 0.995) {
+      if (!this.actived && alphaPC.anim > 0.002F) {
+         alphaPC.getAnim();
+      }
+
+      if (this.actived && (double)alphaPC.getAnim() > 0.995) {
          alphaPC.setAnim(1.0F);
       }
    }
 
    private static float getAlphaPC() {
-      return alphaPC.getAnim();
+      return alphaPC.anim;
    }
 
    private static boolean canRenderModule() {
       return getAlphaPC() >= 0.03F;
    }
 
-   private final Vec3d getCompense() {
+   private Vec3d getCompense() {
       return new Vec3d(RenderManager.renderPosX, RenderManager.renderPosY, RenderManager.renderPosZ);
    }
 
-   private final void setup3dFor(Runnable render) {
+   private void setup3dFor(Runnable render) {
       GL11.glPushMatrix();
-      GlStateManager.tryBlendFuncSeparate(
-         GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-      );
+      GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO);
       GL11.glEnable(3042);
       GL11.glLineWidth(1.0E-5F);
       GL11.glDisable(3553);
@@ -654,9 +730,7 @@ public class ESP extends Module {
       GL11.glEnable(3553);
       GL11.glEnable(2929);
       GL11.glEnable(3008);
-      GlStateManager.tryBlendFuncSeparate(
-         GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-      );
+      GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
       GL11.glPopMatrix();
    }
 
@@ -696,35 +770,36 @@ public class ESP extends Module {
    }
 
    private static boolean canPosBeSeenPos(BlockPos posFirst, BlockPos posSecond) {
-      return Minecraft.getMinecraft()
-            .world
-            .rayTraceBlocks(
-               new Vec3d((double)posFirst.getX() + 0.5, (double)(posFirst.getY() + 1), (double)posFirst.getZ() + 0.5),
-               new Vec3d((double)posSecond.getX() + 0.5, (double)posSecond.getY(), (double)posSecond.getZ() + 0.5),
-               false,
-               true,
-               false
-            )
-         == null;
+      return posSecond.getY() - posFirst.getY() <= 3
+         || Minecraft.getMinecraft()
+               .world
+               .rayTraceBlocks(
+                  new Vec3d((double)posFirst.getX() + 0.5, (double)(posFirst.getY() + 1), (double)posFirst.getZ() + 0.5),
+                  new Vec3d((double)posSecond.getX() + 0.5, (double)posSecond.getY(), (double)posSecond.getZ() + 0.5),
+                  false,
+                  true,
+                  false
+               )
+            == null;
    }
 
    private static boolean posSeenSky(BlockPos pos) {
-      return canPosBeSeenPos(pos, new BlockPos(pos.getX(), 256, pos.getZ()));
+      return canPosBeSeenPos(pos, new BlockPos(pos.getX(), mc.world.getChunkFromBlockCoords(pos).getHeightValue(pos.getX() & 15, pos.getZ() & 15), pos.getZ()));
    }
 
    private boolean dangeonIsLooted(TileEntityMobSpawner spawner) {
       boolean bad = false;
       List<BlockPos> currentable = new CopyOnWriteArrayList<>();
-      int range = 5;
+      int range = 4;
 
-      for (Entity ents : mc.world.getLoadedEntityList()) {
-         if (ents != null && ents instanceof EntityItem item) {
+      for (Entity ent : mc.world.getLoadedEntityList()) {
+         if (ent instanceof EntityItem) {
+            EntityItem item = (EntityItem)ent;
             Item cur = item.getItem().getItem();
             if (item.getDistanceToTileEntity(spawner) < 10.0F) {
                for (Item itemL : this.garbageitems) {
                   if (cur == itemL) {
-                     bad = true;
-                     break;
+                     return true;
                   }
                }
             }
@@ -733,7 +808,7 @@ public class ESP extends Module {
 
       for (int x = spawner.getX() - range; x < spawner.getX() + range; x++) {
          for (int z = spawner.getZ() - range; z < spawner.getZ() + range; z++) {
-            currentable.add(new BlockPos(x, spawner.getY(), z));
+            currentable.add(new BlockPos(x, spawner.getY() + range, z));
          }
       }
 
@@ -746,6 +821,18 @@ public class ESP extends Module {
       return bad;
    }
 
+   private String declensionCountString(int number, String pismo, String pisma, String pisem) {
+      number = Math.abs(number) % 100;
+      int number2 = number % 10;
+      if (number > 10 && number < 20) {
+         return pisem;
+      } else if (number2 > 1 && number2 < 5) {
+         return pisma;
+      } else {
+         return number2 == 1 ? pismo : pisem;
+      }
+   }
+
    private String[] getSpawnerInfo(TileEntityMobSpawner spawner) {
       String str = "Спавнер";
       String str2 = null;
@@ -753,37 +840,20 @@ public class ESP extends Module {
       spawner.getSpawnerBaseLogic().updateTime();
       int chestCounter = 0;
 
-      for (TileEntity tile : this.getTileEntities(true, false, false, false)) {
-         if (tile instanceof TileEntityChest && ((TileEntityChest)tile).getChestType() == BlockChest.Type.BASIC && spawner.getDistanceToTileEntity(tile) < 7.0) {
+      for (TileEntity tile : this.storagesTempEList) {
+         if (tile instanceof TileEntityChest && ((TileEntityChest)tile).getChestType() == Type.BASIC && spawner.getDistanceToTileEntity(tile) < 7.0) {
             chestCounter++;
          }
       }
 
       if (spawner != null && spawner.getSpawnerBaseLogic() != null && spawner.getSpawnerBaseLogic().cachedEntity != null) {
          if (chestCounter != 0) {
-            String slog = chestCounter == 1 || chestCounter == 21 || chestCounter == 31 || chestCounter == 41 || chestCounter == 51
-               ? ""
-               : (
-                  chestCounter % 5 != 0
-                        && chestCounter % 6 != 0
-                        && chestCounter % 7 != 0
-                        && chestCounter % 8 != 0
-                        && chestCounter % 9 != 0
-                        && chestCounter % 10 != 0
-                        && chestCounter % 11 != 0
-                        && chestCounter % 12 != 0
-                        && chestCounter % 13 != 0
-                        && chestCounter % 14 != 0
-                        && chestCounter % 15 != 0
-                        && chestCounter % 16 != 0
-                        && chestCounter % 17 != 0
-                        && chestCounter % 18 != 0
-                        && chestCounter % 19 != 0
-                        && chestCounter % 20 != 0
-                     ? (chestCounter % 2 != 0 && chestCounter % 3 != 0 && chestCounter % 4 != 0 ? "" : "а")
-                     : "ов"
-               );
-            str2 = "рядом есть " + chestCounter + " сундук" + slog;
+            str2 = "рядом "
+               + this.declensionCountString(chestCounter, "стоит", "стоят", "стоят")
+               + " "
+               + chestCounter
+               + " "
+               + this.declensionCountString(chestCounter, "сундук", "сундука", "сундуков");
             if (isDangeon(spawner)) {
                str3 = this.dangeonIsLooted(spawner) ? "этот дандж возможно залутан" : "это пригодный дандж";
             }
@@ -797,29 +867,12 @@ public class ESP extends Module {
             str = str + " | не активен";
          }
       } else if (chestCounter != 0) {
-         String slog = chestCounter == 1 || chestCounter == 21 || chestCounter == 31 || chestCounter == 41 || chestCounter == 51
-            ? ""
-            : (
-               chestCounter % 5 == 0
-                     || chestCounter % 6 == 0
-                     || chestCounter % 7 == 0
-                     || chestCounter % 8 == 0
-                     || chestCounter % 9 == 0
-                     || chestCounter % 10 == 0
-                     || chestCounter % 11 == 0
-                     || chestCounter % 12 == 0
-                     || chestCounter % 13 == 0
-                     || chestCounter % 14 == 0
-                     || chestCounter % 15 == 0
-                     || chestCounter % 16 == 0
-                     || chestCounter % 17 == 0
-                     || chestCounter % 18 == 0
-                     || chestCounter % 19 == 0
-                     || chestCounter % 20 == 0
-                  ? "ов"
-                  : (chestCounter % 2 != 0 && chestCounter % 3 != 0 && chestCounter % 4 != 0 ? "" : "а")
-            );
-         str2 = "рядом есть " + chestCounter + " сундук" + slog;
+         str2 = "рядом "
+            + this.declensionCountString(chestCounter, "стоит", "стоят", "стоят")
+            + " "
+            + chestCounter
+            + " "
+            + this.declensionCountString(chestCounter, "сундук", "сундука", "сундуков");
          if (isDangeon(spawner)) {
             str3 = this.dangeonIsLooted(spawner) ? "этот дандж возможно залутан" : "это пригодный дандж";
          }
@@ -833,19 +886,19 @@ public class ESP extends Module {
    }
 
    private int getTileEntityStorageColor(TileEntity storage) {
-      int col = -1;
-      if (storage instanceof TileEntityChest) {
-         col = ColorUtils.getColor(255, 160, 10);
-         if (((TileEntityChest)storage).getChestType() == BlockChest.Type.TRAP) {
-            col = ColorUtils.getColor(255, 85, 0);
-         }
+      if (storage instanceof TileEntityChest chest) {
+         return chest.getChestType() == Type.TRAP ? ColorUtils.getColor(255, 85, 0) : ColorUtils.getColor(255, 160, 10);
       } else if (storage instanceof TileEntityEnderChest) {
-         col = ColorUtils.getColor(120, 0, 160);
-      } else if (storage instanceof TileEntityShulkerBox) {
-         col = ColorUtils.getColor(255, 48, 255);
+         return ColorUtils.getColor(120, 0, 160);
+      } else {
+         return storage instanceof TileEntityShulkerBox box
+            ? ColorUtils.getColor(
+               (int)(box.func_190592_s().field_193352_x()[0] * 255.0F),
+               (int)(box.func_190592_s().field_193352_x()[1] * 255.0F),
+               (int)(box.func_190592_s().field_193352_x()[2] * 255.0F)
+            )
+            : -1;
       }
-
-      return col;
    }
 
    public void alwaysPreRender2D(float partialTicks, ScaledResolution sr) {
@@ -874,138 +927,167 @@ public class ESP extends Module {
       }
    }
 
-   private void draw2d(float partialTicks, ScaledResolution sr) {
-      boolean players = this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("2D");
-      boolean self = this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("2D");
-      boolean players2 = this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("Glow");
-      boolean self2 = this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("Glow");
-      boolean items = this.ItemsI.getBool();
-      boolean pearl = this.EnderPearl.getBool();
-      boolean crystal = this.EnderCrystals.getBool();
-      boolean beacons = this.Beacon.getBool();
-      boolean spawner = this.Spawner.getBool();
-      boolean tnt = this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("2D");
-      boolean tnt2 = this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("Glow");
-      boolean targets = this.Targets.getBool();
-      GL11.glEnable(3042);
-      if (this.getEntities(players2, self2, false, crystal, false, tnt2).size() != 0) {
-         this.drawGlows();
-      }
-
+   private ESP.Scoper scopeTo2d(AxisAlignedBB aabb, ScaledResolution sr, float partialTicks) {
       int scaleFactor = ScaledResolution.getScaleFactor();
       double scaling = (double)scaleFactor / Math.pow((double)scaleFactor, 2.0);
       EntityRenderer entityRenderer = mc.entityRenderer;
-      if (this.getTileEntities(false, beacons, spawner, false).size() != 0) {
-         GL11.glPushMatrix();
-         GL11.glScaled(scaling, scaling, scaling);
+      Vector3d[] vectors = new Vector3d[]{
+         new Vector3d(aabb.minX, aabb.minY, aabb.minZ),
+         new Vector3d(aabb.minX, aabb.maxY, aabb.minZ),
+         new Vector3d(aabb.maxX, aabb.minY, aabb.minZ),
+         new Vector3d(aabb.maxX, aabb.maxY, aabb.minZ),
+         new Vector3d(aabb.minX, aabb.minY, aabb.maxZ),
+         new Vector3d(aabb.minX, aabb.maxY, aabb.maxZ),
+         new Vector3d(aabb.maxX, aabb.minY, aabb.maxZ),
+         new Vector3d(aabb.maxX, aabb.maxY, aabb.maxZ)
+      };
+      entityRenderer.setupCameraTransform(partialTicks, 0);
+      Vector4d position = null;
 
-         for (TileEntity tile : this.getTileEntities(false, beacons, spawner, false)) {
-            double x = (double)tile.getX() + 0.5;
-            double y = (double)tile.getY();
-            double z = (double)tile.getZ() + 0.5;
-            double height = 1.0;
-            double width = 1.0;
-            AxisAlignedBB aabb = new AxisAlignedBB(x - 0.5, y, z - 0.5, x + 0.5, y + 1.0, z + 0.5);
-            Vector3d[] vectors = new Vector3d[]{
-               new Vector3d(aabb.minX, aabb.minY, aabb.minZ),
-               new Vector3d(aabb.minX, aabb.maxY, aabb.minZ),
-               new Vector3d(aabb.maxX, aabb.minY, aabb.minZ),
-               new Vector3d(aabb.maxX, aabb.maxY, aabb.minZ),
-               new Vector3d(aabb.minX, aabb.minY, aabb.maxZ),
-               new Vector3d(aabb.minX, aabb.maxY, aabb.maxZ),
-               new Vector3d(aabb.maxX, aabb.minY, aabb.maxZ),
-               new Vector3d(aabb.maxX, aabb.maxY, aabb.maxZ)
-            };
-            entityRenderer.setupCameraTransform(partialTicks, 0);
-            Vector4d position = null;
-
-            for (Vector3d vector : vectors) {
-               vector = this.project2D(
-                  scaleFactor, vector.x - RenderManager.viewerPosX, vector.y - RenderManager.viewerPosY, vector.z - RenderManager.viewerPosZ
-               );
-               if (vector != null && vector.z >= 0.0 && vector.z < 1.0) {
-                  if (position == null) {
-                     position = new Vector4d(vector.x, vector.y, vector.z, 0.0);
-                  }
-
-                  position.x = Math.min(vector.x, position.x);
-                  position.y = Math.min(vector.y, position.y);
-                  position.z = Math.max(vector.x, position.z);
-                  position.w = Math.max(vector.y, position.w);
-               }
+      for (Vector3d vector : vectors) {
+         vector = this.project2D(scaleFactor, vector.x - RenderManager.viewerPosX, vector.y - RenderManager.viewerPosY, vector.z - RenderManager.viewerPosZ);
+         if (vector != null && vector.z >= 0.0 && vector.z < 1.0) {
+            if (position == null) {
+               position = new Vector4d(vector.x, vector.y, vector.z, 0.0);
             }
 
-            entityRenderer.setupOverlayRendering();
-            if (position != null
-               && position.w > 1.0
-               && position.z > 1.0
-               && position.x < (double)(sr.getScaledWidth() - 1)
-               && position.y < (double)(sr.getScaledHeight() - 1)) {
-               this.drawEspM(position.x, position.y, position.z, position.w, tile);
-            }
+            position.x = Math.min(vector.x, position.x);
+            position.y = Math.min(vector.y, position.y);
+            position.z = Math.max(vector.x, position.z);
+            position.w = Math.max(vector.y, position.w);
          }
-
-         GL11.glPopMatrix();
       }
 
-      if (this.getEntities(players, self, items, false, pearl, tnt).size() != 0) {
-         GL11.glPushMatrix();
-         GL11.glScaled(scaling, scaling, scaling);
+      entityRenderer.setupOverlayRendering();
+      return position != null
+            && position.w > 1.0
+            && position.z > 1.0
+            && position.x < (double)(sr.getScaledWidth() - 1)
+            && position.y < (double)(sr.getScaledHeight() - 1)
+         ? new ESP.Scoper(new Vector4d(position.x, position.y, position.z, position.w), () -> {
+            GL11.glPushMatrix();
+            GL11.glScaled(scaling, scaling, scaling);
+         }, GL11::glPopMatrix)
+         : null;
+   }
 
-         for (Entity entity : this.getEntities(players, self, items, false, pearl, tnt)) {
-            double x = RenderUtils.interpolate(entity.posX, entity.prevPosX, (double)partialTicks);
-            double y = RenderUtils.interpolate(entity.posY, entity.prevPosY, (double)partialTicks);
-            double z = RenderUtils.interpolate(entity.posZ, entity.prevPosZ, (double)partialTicks);
-            double height = (double)(entity.height / (entity instanceof EntityLivingBase && ((EntityLivingBase)entity).isChild() ? 1.75F : 1.0F) + 0.1F);
-            double width = (double)(entity.width / (entity instanceof EntityLivingBase && ((EntityLivingBase)entity).isChild() ? 1.5F : 1.0F));
-            AxisAlignedBB aabb = new AxisAlignedBB(x - width / 2.0, y, z - width / 2.0, x + width / 2.0, y + height, z + width / 2.0);
-            Vector3d[] vectors = new Vector3d[]{
-               new Vector3d(aabb.minX, aabb.minY, aabb.minZ),
-               new Vector3d(aabb.minX, aabb.maxY, aabb.minZ),
-               new Vector3d(aabb.maxX, aabb.minY, aabb.minZ),
-               new Vector3d(aabb.maxX, aabb.maxY, aabb.minZ),
-               new Vector3d(aabb.minX, aabb.minY, aabb.maxZ),
-               new Vector3d(aabb.minX, aabb.maxY, aabb.maxZ),
-               new Vector3d(aabb.maxX, aabb.minY, aabb.maxZ),
-               new Vector3d(aabb.maxX, aabb.maxY, aabb.maxZ)
-            };
-            entityRenderer.setupCameraTransform(partialTicks, 0);
-            Vector4d position = null;
+   private ESP.Scoper scopeTo2d(BlockPos pos, ScaledResolution sr, float partialTicks) {
+      return this.scopeTo2d(new AxisAlignedBB(pos), sr, partialTicks);
+   }
 
-            for (Vector3d vectorx : vectors) {
-               vectorx = this.project2D(
-                  scaleFactor, vectorx.x - RenderManager.viewerPosX, vectorx.y - RenderManager.viewerPosY, vectorx.z - RenderManager.viewerPosZ
-               );
-               if (vectorx != null && vectorx.z >= 0.0 && vectorx.z < 1.0) {
-                  if (position == null) {
-                     position = new Vector4d(vectorx.x, vectorx.y, vectorx.z, 0.0);
-                  }
-
-                  position.x = Math.min(vectorx.x, position.x);
-                  position.y = Math.min(vectorx.y, position.y);
-                  position.z = Math.max(vectorx.x, position.z);
-                  position.w = Math.max(vectorx.y, position.w);
-               }
-            }
-
-            entityRenderer.setupOverlayRendering();
-            GL11.glDisable(2896);
-            GlStateManager.enableAlpha();
-            if (position != null
-               && position.w > 1.0
-               && position.z > 1.0
-               && position.x < (double)(sr.getScaledWidth() - 1)
-               && position.y < (double)(sr.getScaledHeight() - 1)) {
-               this.drawEspS(position.x, position.y, position.z, position.w, entity);
-            }
+   private ESP.Scoper scopeTo2d(Entity entity, boolean center, ScaledResolution sr, float partialTicks) {
+      double x;
+      double y;
+      double z;
+      float var10001;
+      label26: {
+         x = RenderUtils.interpolate(entity.posX, entity.prevPosX, (double)partialTicks);
+         y = RenderUtils.interpolate(entity.posY, entity.prevPosY, (double)partialTicks);
+         z = RenderUtils.interpolate(entity.posZ, entity.prevPosZ, (double)partialTicks);
+         if (entity instanceof EntityLivingBase base && base.isChild()) {
+            var10001 = 1.75F;
+            break label26;
          }
 
-         GL11.glPopMatrix();
+         var10001 = 1.0F;
       }
 
-      if (targets && this.TargetsMode.currentMode.equalsIgnoreCase("Shape") && (!this.getTargets().isEmpty() || !this.colVecsWithEntList.isEmpty())) {
-         List<ESP.ColVecsWithEnt> colVecsWithEntList1 = this.getTargets()
-            .stream()
+      double height = (double)(entity.height / var10001 + 0.1F);
+      float var10000;
+      if (center) {
+         var10000 = 0.0F;
+      } else {
+         label19: {
+            if (entity instanceof EntityLivingBase base && base.isChild()) {
+               var10001 = 1.5F;
+               break label19;
+            }
+
+            var10001 = 1.0F;
+         }
+
+         var10000 = entity.width / var10001;
+      }
+
+      double width = (double)var10000;
+      return this.scopeTo2d(new AxisAlignedBB(x - width / 2.0, y, z - width / 2.0, x + width / 2.0, y + height, z + width / 2.0), sr, partialTicks);
+   }
+
+   private void draw2d(float partialTicks, ScaledResolution sr) {
+      boolean targets = this.Targets.getBool();
+      GL11.glEnable(3042);
+      if (!this.players3dEList.isEmpty() || !this.crystalsEList.isEmpty() || !this.tnt3dEList.isEmpty()) {
+         this.drawGlows();
+      }
+
+      float alphaPC = getAlphaPC();
+      if (!this.spawnersEList.isEmpty()) {
+         this.spawnersEList.forEach(spawner -> {
+            ESP.Scoper scoper = this.scopeTo2d(spawner.getPos(), sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawSpawner(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), spawner, alphaPC * this.Spawner.getAnimation());
+            }
+         });
+      }
+
+      if (!this.beaconsEList.isEmpty()) {
+         this.beaconsEList.forEach(beacon -> {
+            ESP.Scoper scoper = this.scopeTo2d(beacon.getPos(), sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawBeacon(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), beacon, alphaPC * this.Beacon.getAnimation());
+            }
+         });
+      }
+
+      if (!this.tnt2dEList.isEmpty()) {
+         this.tnt2dEList.forEach(tnt -> {
+            ESP.Scoper scoper = this.scopeTo2d(tnt, false, sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawTntPrimedsESP(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), tnt, alphaPC * this.TntPrimed.getAnimation());
+            }
+         });
+      }
+
+      if (!this.players2dEList.isEmpty()) {
+         this.players2dEList.forEach(player -> {
+            ESP.Scoper scoper = this.scopeTo2d(player, false, sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawPlayerESP(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), player, alphaPC);
+            }
+         });
+      }
+
+      if (!this.itemsEList.isEmpty()) {
+         this.itemsEList.forEach(item -> {
+            ESP.Scoper scoper = this.scopeTo2d(item, true, sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawItemESP(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), item, alphaPC * this.ItemsI.getAnimation());
+            }
+         });
+      }
+
+      if (!this.enderPearlsEList.isEmpty()) {
+         this.enderPearlsEList.forEach(pearl -> {
+            ESP.Scoper scoper = this.scopeTo2d(pearl, false, sr, partialTicks);
+            if (scoper != null) {
+               Vector4d vec = scoper.getVec4d();
+               this.drawPearlsESP(vec.getX(), vec.getY(), vec.getZ(), vec.getW(), pearl, alphaPC * this.EnderPearl.getAnimation());
+            }
+         });
+      }
+
+      List<EntityLivingBase> targetsE = new ArrayList<>();
+      if (targets && this.TargetsMode.getMode().equalsIgnoreCase("Shape")) {
+         targetsE = this.getTargets();
+      }
+
+      if (!targetsE.isEmpty() || !this.colVecsWithEntList.isEmpty()) {
+         List<ESP.ColVecsWithEnt> colVecsWithEntList1 = targetsE.stream()
             .filter(Objects::nonNull)
             .map(target -> this.targetESPSPos(target, 0))
             .filter(Objects::nonNull)
@@ -1020,7 +1102,7 @@ public class ESP extends Module {
             )
             .forEach(colVecsWithEnt -> this.colVecsWithEntList.add(colVecsWithEnt));
          this.colVecsWithEntList.stream().filter(Objects::nonNull).forEach(colVecsWithEnt -> colVecsWithEnt.update(colVecsWithEntList1));
-         this.colVecsWithEntList.stream().filter(Objects::nonNull).filter(Objects::nonNull).collect(Collectors.toList()).removeIf(ESP.ColVecsWithEnt::toRemove);
+         this.colVecsWithEntList.stream().filter(Objects::nonNull).collect(Collectors.toList()).removeIf(ESP.ColVecsWithEnt::toRemove);
          this.colVecsWithEntList.stream().filter(Objects::nonNull).forEach(colVecsWithEnt -> this.drawTargets2D(colVecsWithEnt));
       }
 
@@ -1052,36 +1134,51 @@ public class ESP extends Module {
    private void drawGlows() {
       mc.gameSettings.ofFastRender = false;
       if (!Config.isShaders()) {
-         float radiusShadow = this.GlowRadius.getFloat() * 2.0F - 1.5F;
-         float aPC = getAlphaPC() * (this.GlowBloom.getBool() ? (this.BloomAmount.getFloat() - 0.35F) * 1.3F : 1.0F);
-         if (this.framebuffer != null) {
-            boolean bloom = this.GlowBloom.getBool();
+         float radiusShadow = 12.0F;
+         float outlineRadius = 2.0F;
+         boolean outline = true;
+         float aPC = getAlphaPC();
+         if (this.framebuffer1 != null) {
             GlStateManager.pushMatrix();
-            GlStateManager.alphaFunc(516, 0.0F);
+            GlStateManager.alphaFunc(516, 0.003921569F);
             GlStateManager.enableBlend();
-            OpenGlHelper.glBlendFunc(770, bloom ? 1 : 771, 1, 0);
-            this.glowFrameBuffer.framebufferClear();
-            this.glowFrameBuffer.bindFramebuffer(false);
+            OpenGlHelper.glBlendFunc(770, 32772, 1, 0);
+            this.glowFrameBuffer1.framebufferClear();
+            this.glowFrameBuffer1.bindFramebuffer(false);
             this.glowShader.attach();
-            this.setupGlowShader(radiusShadow, aPC);
+            this.setupGlowShader(2.0F, aPC * 1.5F);
             this.setupGlowDirs(1.0F, 0.0F);
-            this.framebuffer.bindFramebufferTexture();
+            this.framebuffer1.bindFramebufferTexture();
             ShaderUtility.drawQuads();
             mc.getFramebuffer().bindFramebuffer(false);
             this.setupGlowDirs(0.0F, 1.0F);
             GlStateManager.setActiveTexture(34000);
-            this.framebuffer.bindFramebufferTexture();
+            this.framebuffer1.bindFramebufferTexture();
             GlStateManager.setActiveTexture(33984);
-            this.glowFrameBuffer.bindFramebufferTexture();
+            this.glowFrameBuffer1.bindFramebufferTexture();
+            GL11.glDisable(2929);
+            this.drawGLTex(0.0F, 0.0F);
+            GL11.glEnable(2929);
+            this.glowShader.detach();
+            this.glowFrameBuffer1.framebufferClear();
+            this.glowFrameBuffer1.bindFramebuffer(false);
+            this.glowShader.attach();
+            this.setupGlowShader(12.0F, aPC / 4.25F);
+            this.setupGlowDirs(1.0F, 0.0F);
+            this.framebuffer1.bindFramebufferTexture();
+            ShaderUtility.drawQuads();
+            mc.getFramebuffer().bindFramebuffer(false);
+            this.setupGlowDirs(0.0F, 1.0F);
+            GlStateManager.setActiveTexture(34000);
+            this.framebuffer1.bindFramebufferTexture();
+            GlStateManager.setActiveTexture(33984);
+            this.glowFrameBuffer1.bindFramebufferTexture();
             GL11.glDisable(2929);
             this.drawGLTex(0.0F, 0.0F);
             GL11.glEnable(2929);
             this.glowShader.detach();
             GlStateManager.bindTexture(0);
-            if (bloom) {
-               OpenGlHelper.glBlendFunc(770, 771, 1, 0);
-            }
-
+            OpenGlHelper.glBlendFunc(770, 771, 1, 0);
             GlStateManager.alphaFunc(516, 0.1F);
             GlStateManager.enableDepth();
             GlStateManager.disableLighting();
@@ -1105,21 +1202,22 @@ public class ESP extends Module {
       GL11.glEnd();
    }
 
-   private void drawPlayerESP(double x, double y, double x2, double y2, Entity ent) {
+   private void drawPlayerESP(double x, double y, double x2, double y2, Entity ent, float alphaPC) {
       if (ent instanceof EntityPlayer player && ent.ticksExisted > 3) {
+         boolean sp = ent instanceof EntityPlayerSP;
          float alphaPercent = (
-               ent instanceof EntityPlayerSP
+               sp
                   ? 1.0F
                   : MathUtils.clamp(
                      Minecraft.player.getSmoothDistanceToEntity(player) / 5.0F * (Minecraft.player.getSmoothDistanceToEntity(player) / 5.0F), 0.0F, 1.0F
                   )
             )
-            * getAlphaPC();
+            * alphaPC
+            * (sp ? this.Self.getAnimation() : this.Players.getAnimation());
          int c1 = ClientColors.getColor1(0);
          int c2 = ClientColors.getColor2(100);
          int color = ColorUtils.swapAlpha(c1, (float)ColorUtils.getAlphaFromColor(c1) * alphaPercent);
          int color2 = ColorUtils.swapAlpha(c2, (float)ColorUtils.getAlphaFromColor(c2) * alphaPercent);
-         int bgCol = ColorUtils.getColor(0, 0, 0, (float)ColorUtils.getAlphaFromColor(ColorUtils.getOverallColorFrom(color, color2)) * alphaPercent * 0.5F);
          float offset = -0.5F;
          RenderUtils.drawLightContureRect(
             x - (double)offset,
@@ -1205,45 +1303,32 @@ public class ESP extends Module {
       }
    }
 
-   private static void drawItemESP(double x, double y, double x2, double y2, Entity ent) {
+   private void drawItemESP(double x, double y, double x2, double y2, Entity ent, float alphaPC) {
       if (ent instanceof EntityItem itemEnt && itemEnt.ticksExisted > 1) {
-         CFontRenderer fontUsed = Fonts.comfortaaBold_12;
+         FontRenderer fontUsed = mc.fontRendererObj;
          float alphaPercent = MathUtils.clamp(
-               Minecraft.player.getSmoothDistanceToEntity(itemEnt) / 2.0F * (Minecraft.player.getSmoothDistanceToEntity(itemEnt) / 2.0F), 0.0F, 1.0F
+               Minecraft.player.getSmoothDistanceToEntity(itemEnt) / 6.0F * (Minecraft.player.getSmoothDistanceToEntity(itemEnt) / 6.0F), 0.0F, 1.0F
             )
-            * getAlphaPC()
-            * MathUtils.clamp((float)itemEnt.ticksExisted / 20.0F, 0.0F, 1.0F);
+            * alphaPC
+            * MathUtils.clamp(((float)itemEnt.ticksExisted + mc.getRenderPartialTicks()) / 14.0F, 0.0F, 1.0F)
+            / 1.33333F;
          ItemStack item = itemEnt.getEntityItem();
-         String prefex = item.getDisplayName();
-         if (item.stackSize > 1 && !prefex.isEmpty()) {
-            prefex = prefex + " §cx" + item.stackSize;
-         }
+         if (155.0F * alphaPercent >= 33.0F) {
+            String prefex = ReplaceStrUtils.fixString(item.getDisplayName());
+            if (prefex.length() == 0) {
+               return;
+            }
 
-         float w = (float)fontUsed.getStringWidth(prefex);
-         int bgColor1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ColorUtils.getColor(0), ClientColors.getColor1(), 0.15F), 85.0F * alphaPercent);
-         int bgColor2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ColorUtils.getColor(0), ClientColors.getColor2(), 0.15F), 85.0F * alphaPercent);
-         int bgOutColor1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ColorUtils.getColor(0), ClientColors.getColor1(), 0.4F), 185.0F * alphaPercent);
-         int bgOutColor2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ColorUtils.getColor(0), ClientColors.getColor2(), 0.4F), 185.0F * alphaPercent);
-         RenderUtils.drawAlphedSideways(
-            (double)((float)(x + (x2 - x) / 2.0 - (double)(w / 2.0F)) - 0.5F),
-            y - 8.0,
-            (double)((float)(x + (x2 - x) / 2.0 + (double)(w / 2.0F)) + 0.5F),
-            y - 1.0,
-            bgColor1,
-            bgColor2
-         );
-         RenderUtils.drawLightContureRectSidewaysSmooth(
-            (double)((float)(x + (x2 - x) / 2.0 - (double)(w / 2.0F)) - 0.5F),
-            y - 8.0,
-            (double)((float)(x + (x2 - x) / 2.0 + (double)(w / 2.0F)) + 0.5F),
-            y - 1.0,
-            bgOutColor1,
-            bgOutColor2
-         );
-         if (255.0F * alphaPercent >= 32.0F) {
-            fontUsed.drawString(
-               prefex, (double)((float)(x + (x2 - x) / 2.0 - (double)(w / 2.0F))), y - 6.0, ColorUtils.getColor(255, 255, 255, 255.0F * alphaPercent)
-            );
+            if (item.stackSize > 1 && !prefex.isEmpty()) {
+               prefex = prefex + " §c(x" + item.stackSize + ")";
+            }
+
+            float w = (float)fontUsed.getStringWidth(prefex);
+            int bgColor1 = ColorUtils.getColor(0, 0, 0, alphaPercent * 125.0F);
+            int bgColor2 = ColorUtils.getColor(0, 0, 0, alphaPercent * 50.0F);
+            RenderUtils.drawTwoAlphedSideways(x - (double)(w / 2.0F) - 1.5, y - 2.5, x + (double)(w / 2.0F) + 1.5, y + 5.5, bgColor1, bgColor2, false);
+            GL11.glEnable(3042);
+            fontUsed.drawString(prefex, (float)x - w / 2.0F, (double)((float)y - 3.0F), ColorUtils.getColor(255, 255, 255, 155.0F * alphaPercent));
          }
 
          RenderUtils.resetBlender();
@@ -1251,13 +1336,13 @@ public class ESP extends Module {
       }
    }
 
-   private void drawTntPrimedsESP(double x, double y, double x2, double y2, Entity ent) {
+   private void drawTntPrimedsESP(double x, double y, double x2, double y2, Entity ent, float alphaPC) {
       if (ent instanceof EntityTNTPrimed && ent.ticksExisted < 81) {
          float timePC = 1.0F - (float)ent.ticksExisted / 80.0F;
          float scalePush = MathUtils.clamp((1.0F - timePC - 0.9F) * 9.0F, 0.0F, 1.0F);
          float scale = 1.0F + scalePush / 5.0F;
          float alphaPercent = MathUtils.clamp(Minecraft.player.getSmoothDistanceToEntity(ent) * Minecraft.player.getSmoothDistanceToEntity(ent), 0.0F, 1.0F)
-            * getAlphaPC();
+            * alphaPC;
          int c1 = ClientColors.getColor1(0);
          int c2 = ClientColors.getColor2(90);
          int color = ColorUtils.swapAlpha(c1, (float)ColorUtils.getAlphaFromColor(c1) * alphaPercent);
@@ -1329,13 +1414,6 @@ public class ESP extends Module {
       }
    }
 
-   private void drawEspS(double x, double y, double x2, double y2, Entity ent) {
-      this.drawPearlsESP(x, y, x2, y2, ent);
-      drawItemESP(x, y, x2, y2, ent);
-      this.drawPlayerESP(x, y, x2, y2, ent);
-      this.drawTntPrimedsESP(x, y, x2, y2, ent);
-   }
-
    public void drawModalRectWithCustomSizedTexture(float x, float y, float u, float v, int width, int height, float textureWidth, float textureHeight) {
       float f = 1.0F / textureWidth;
       float f1 = 1.0F / textureHeight;
@@ -1349,16 +1427,16 @@ public class ESP extends Module {
       tessellator.draw();
    }
 
-   private void drawPearlsESP(double x, double y, double x2, double y2, Entity ent) {
+   private void drawPearlsESP(double x, double y, double x2, double y2, Entity ent, float alphaPC) {
       if (ent instanceof EntityEnderPearl) {
          float texW = 22.0F;
          float texH = 28.0F;
          float texX = (float)(x + (x2 - x) / 2.0 - (double)(texW / 2.0F));
          float texY = (float)(y - (double)texH);
-         int color1 = ClientColors.getColor1(0);
-         int color2 = ClientColors.getColor2(-90);
-         int color3 = ClientColors.getColor2(0);
-         int color4 = ClientColors.getColor1(240);
+         int color1 = ClientColors.getColor1(0, alphaPC);
+         int color2 = ClientColors.getColor2(-90, alphaPC);
+         int color3 = ClientColors.getColor2(0, alphaPC);
+         int color4 = ClientColors.getColor1(240, alphaPC);
          mc.getTextureManager().bindTexture(this.PEARL_MARK_TEXTURE);
          Tessellator tessellator = Tessellator.getInstance();
          BufferBuilder bufferbuilder = tessellator.getBuffer();
@@ -1381,23 +1459,13 @@ public class ESP extends Module {
       }
    }
 
-   private void drawEspM(double x, double y, double x2, double y2, TileEntity tile) {
-      if (tile instanceof TileEntityBeacon) {
-         this.drawBeacon(x, y, x2, y2, (TileEntityBeacon)tile);
-      }
-
-      if (tile instanceof TileEntityMobSpawner) {
-         this.drawSpawner(x, y, x2, y2, (TileEntityMobSpawner)tile);
-      }
-   }
-
-   private void drawBeacon(double x, double y, double x2, double y2, TileEntityBeacon beacon) {
+   private void drawBeacon(double x, double y, double x2, double y2, TileEntityBeacon beacon, float alphaPC) {
       if (beacon != null) {
          double dst = (double)Minecraft.player.getSmoothDistanceToTileEntity(beacon);
          float alphaPercent = MathUtils.clamp(
                Minecraft.player.getSmoothDistanceToTileEntity(beacon) / 5.0F * (Minecraft.player.getSmoothDistanceToTileEntity(beacon) / 5.0F), 0.0F, 1.0F
             )
-            * getAlphaPC();
+            * alphaPC;
          int lvl = beacon.getLevels();
          int distMax = 11 + 10 * lvl;
          CFontRenderer fontUsed = Fonts.noise_14;
@@ -1456,14 +1524,14 @@ public class ESP extends Module {
       }
    }
 
-   private void drawSpawner(double x, double y, double x2, double y2, TileEntityMobSpawner spawner) {
+   private void drawSpawner(double x, double y, double x2, double y2, TileEntityMobSpawner spawner, float alphaPC) {
       if (spawner != null) {
          CFontRenderer fontUsed = Fonts.noise_14;
          CFontRenderer fontUsed2 = Fonts.mntsb_12;
          float alphaPercent = MathUtils.clamp(
                Minecraft.player.getSmoothDistanceToTileEntity(spawner) / 2.0F * (Minecraft.player.getSmoothDistanceToTileEntity(spawner) / 2.0F), 0.0F, 1.0F
             )
-            * alphaPC.anim;
+            * alphaPC;
          int c1 = ClientColors.getColor1();
          int c2 = ClientColors.getColor2();
          int color = ColorUtils.swapAlpha(c1, (float)ColorUtils.getAlphaFromColor(c1) * alphaPercent);
@@ -1582,14 +1650,10 @@ public class ESP extends Module {
             vec = new Vec3d((double)x + 0.0625, (double)y, (double)z + 0.0625);
             vec2 = new Vec3d((double)x + 0.9375, (double)y + 0.875, (double)z + 0.9375);
          }
-      }
-
-      if (storage instanceof TileEntityEnderChest chestx) {
+      } else if (storage instanceof TileEntityEnderChest chestx) {
          vec = new Vec3d((double)x + 0.0625, (double)y, (double)z + 0.0625);
          vec2 = new Vec3d((double)x + 0.9375, (double)y + 0.875, (double)z + 0.9375);
-      }
-
-      if (storage instanceof TileEntityShulkerBox chestx) {
+      } else if (storage instanceof TileEntityShulkerBox) {
          vec = new Vec3d((double)x, (double)y, (double)z);
          AxisAlignedBB aabbs = mc.world.getBlockState(pos).getSelectedBoundingBox(mc.world, pos);
          double h = aabbs.maxY - aabbs.minY;
@@ -1599,28 +1663,16 @@ public class ESP extends Module {
       return new AxisAlignedBB(vec.xCoord, vec.yCoord, vec.zCoord, vec2.xCoord, vec2.yCoord, vec2.zCoord);
    }
 
-   private void drawStorages(float alphaPC) {
-      this.setup3dFor(() -> this.getTileEntities(true, false, false, false).forEach(l -> this.drawStorageEsp(l, alphaPC)));
+   private void drawStorages(List<TileEntity> staorages, float alphaPC) {
+      staorages.forEach(storage -> this.drawStorageEsp(storage, alphaPC));
    }
 
    private void drawStorageEsp(TileEntity storage, float alphaPC) {
-      if (storage != null) {
-         double distance = Minecraft.player == null ? 0.0 : (double)Minecraft.player.getSmoothDistanceToTileEntity(storage);
-         float dstPCAlpha = (float)MathUtils.clamp(distance / 10.0 * (distance / 10.0), 0.0, 1.0);
-         float yawDiff = (float)MathUtils.getDifferenceOf(
-            Minecraft.player.rotationYaw,
-            RotationUtil.getNeededFacing(
-               new Vec3d((double)storage.getX(), (double)storage.getY(), (double)storage.getZ()).addVector(0.5, 0.5, 0.5), false, Minecraft.player, false
-            )[0]
-         );
-         yawDiff = (float)((double)yawDiff * MathUtils.clamp(1.3F - (45.0 - MathUtils.getDifferenceOf(Minecraft.player.rotationPitch, 0.0F)) / 90.0, 0.0, 1.0));
-         float yawPC = MathUtils.clamp(0.1F + yawDiff / 90.0F, 0.0F, 1.0F);
-         int storageColor = this.getTileEntityStorageColor(storage);
-         this.drawBlockPos(
-            this.getStorageTileAABB(storage),
-            ColorUtils.swapAlpha(storageColor, (float)ColorUtils.getAlphaFromColor(storageColor) * alphaPC * dstPCAlpha * yawPC)
-         );
-      }
+      double distance = Minecraft.player == null ? 0.0 : (double)Minecraft.player.getSmoothDistanceToTileEntity(storage) - 0.8;
+      float dstPCAlpha = (float)MathUtils.clamp(distance / 5.0 * (distance / 5.0), 0.0, 1.0);
+      int storageColor = this.getTileEntityStorageColor(storage);
+      storage.setGlowing(true, 2);
+      storage.setColorGlowing(ColorUtils.swapAlpha(storageColor, (float)ColorUtils.getAlphaFromColor(storageColor) * alphaPC * dstPCAlpha));
    }
 
    private void setupDrawPearl(Runnable render) {
@@ -1650,110 +1702,101 @@ public class ESP extends Module {
       GL11.glPopMatrix();
    }
 
-   private void drawPearls(float alphaPC) {
+   private void drawPearls(List<EntityEnderPearl> pearls, float alphaPC) {
       this.setupDrawPearl(() -> {
          GL11.glBlendFunc(770, 32772);
 
-         for (Entity ent : this.getEntities(false, false, false, false, true, false)) {
-            this.tesselatePearl((EntityEnderPearl)ent, alphaPC);
+         for (EntityEnderPearl pearl : pearls) {
+            this.tesselatePearl(pearl, alphaPC);
          }
 
          GL11.glBlendFunc(770, 771);
       });
    }
 
-   private void drawEndPortals(float alphaPC) {
-      List<TileEntityEndPortal> portals = new ArrayList<>();
-      this.getTileEntities(false, false, false, true).forEach(tile -> {
-         if (tile instanceof TileEntityEndPortal portalx) {
-            portals.add(portalx);
-         }
-      });
-      if (!portals.isEmpty()) {
-         List<TileEntityEndPortal> portalsToDraw = new ArrayList<>();
+   private void drawEndPortals(List<TileEntityEndPortal> portals, float alphaPC) {
+      List<TileEntityEndPortal> portalsToDraw = new ArrayList<>();
 
-         for (TileEntityEndPortal portal : portals) {
-            if (portals.stream()
-                  .filter(
-                     portalBeta -> (
-                              Math.abs(portal.getPos().getX() - portalBeta.getPos().getX()) == 1
-                                    && Math.abs(portal.getPos().getZ() - portalBeta.getPos().getZ()) < 2
-                                 || Math.abs(portal.getPos().getZ() - portalBeta.getPos().getZ()) == 1
-                                    && Math.abs(portal.getPos().getX() - portalBeta.getPos().getX()) < 2
-                           )
-                           && portal.getPos().getY() == portalBeta.getPos().getY()
-                  )
-                  .toList()
-                  .size()
-               == 8) {
-               portalsToDraw.add(portal);
-            }
+      for (TileEntityEndPortal portal : portals) {
+         if (portals.stream()
+               .filter(
+                  portalBeta -> (
+                           Math.abs(portal.getPos().getX() - portalBeta.getPos().getX()) == 1
+                                 && Math.abs(portal.getPos().getZ() - portalBeta.getPos().getZ()) < 2
+                              || Math.abs(portal.getPos().getZ() - portalBeta.getPos().getZ()) == 1
+                                 && Math.abs(portal.getPos().getX() - portalBeta.getPos().getX()) < 2
+                        )
+                        && portal.getPos().getY() == portalBeta.getPos().getY()
+               )
+               .toList()
+               .size()
+            == 8) {
+            portalsToDraw.add(portal);
          }
+      }
 
-         this.setup3dFor(
-            () -> {
-               for (TileEntityEndPortal portalx : portalsToDraw) {
-                  AxisAlignedBB aabb = mc.world.getBlockState(portalx.getPos()).getSelectedBoundingBox(mc.world, portalx.getPos()).addExpandXZ(1.0);
-                  aabb = aabb.offset(0.0, aabb.maxY - aabb.minY, 0.0);
-                  if (aabb != null) {
-                     float aPC = 1.0F;
-                     int espFillColor = ColorUtils.getColor(0, 160, 155, 95);
-                     int espOutlineColor = ColorUtils.getColor(40, 70, 255, 195);
-                     espFillColor = ColorUtils.swapAlpha(espFillColor, (float)ColorUtils.getAlphaFromColor(espFillColor) * aPC * alphaPC);
-                     espOutlineColor = ColorUtils.swapAlpha(espOutlineColor, (float)ColorUtils.getAlphaFromColor(espFillColor) * aPC * alphaPC);
-                     RenderUtils.drawGradientAlphaBox(aabb.setMaxY(aabb.maxY + 2.0), espOutlineColor != 0, espFillColor != 0, espOutlineColor, espFillColor);
-                     GL11.glPushMatrix();
-                     GL11.glScaled(1.0, -1.0, 1.0);
-                     GL11.glTranslated(0.0, -aabb.minY * 2.0, 0.0);
-                     RenderUtils.drawGradientAlphaBoxWithBooleanDownPool(aabb, false, espFillColor != 0, false, 0, espFillColor);
-                     GL11.glPopMatrix();
-                     GL11.glPushMatrix();
-                     int index = (int)portalx.getPos().toLong();
-                     long timeAnimMax = 2000L;
-                     float deltaTime = (float)((System.currentTimeMillis() + (long)index) % timeAnimMax) / (float)timeAnimMax;
-                     float deltaAnim = (double)deltaTime > 0.5 ? 1.0F - deltaTime : deltaTime;
-                     deltaAnim *= deltaAnim;
-                     GL11.glTranslated(0.0, (double)(2.0F + deltaAnim), 0.0);
+      this.setup3dFor(
+         () -> {
+            for (TileEntityEndPortal portalx : portalsToDraw) {
+               AxisAlignedBB aabb = mc.world.getBlockState(portalx.getPos()).getSelectedBoundingBox(mc.world, portalx.getPos()).addExpandXZ(1.0);
+               aabb = aabb.offset(0.0, aabb.maxY - aabb.minY, 0.0);
+               if (aabb != null) {
+                  float aPC = 1.0F;
+                  int espFillColor = ColorUtils.getColor(0, 160, 155, 95);
+                  int espOutlineColor = ColorUtils.getColor(40, 70, 255, 195);
+                  espFillColor = ColorUtils.swapAlpha(espFillColor, (float)ColorUtils.getAlphaFromColor(espFillColor) * aPC * alphaPC);
+                  espOutlineColor = ColorUtils.swapAlpha(espOutlineColor, (float)ColorUtils.getAlphaFromColor(espFillColor) * aPC * alphaPC);
+                  RenderUtils.drawGradientAlphaBox(aabb.setMaxY(aabb.maxY + 2.0), espOutlineColor != 0, espFillColor != 0, espOutlineColor, espFillColor);
+                  GL11.glPushMatrix();
+                  GL11.glScaled(1.0, -1.0, 1.0);
+                  GL11.glTranslated(0.0, -aabb.minY * 2.0, 0.0);
+                  RenderUtils.drawGradientAlphaBoxWithBooleanDownPool(aabb, false, espFillColor != 0, false, 0, espFillColor);
+                  GL11.glPopMatrix();
+                  GL11.glPushMatrix();
+                  int index = (int)portalx.getPos().toLong();
+                  long timeAnimMax = 2000L;
+                  float deltaTime = (float)((System.currentTimeMillis() + (long)index) % timeAnimMax) / (float)timeAnimMax;
+                  float deltaAnim = (double)deltaTime > 0.5 ? 1.0F - deltaTime : deltaTime;
+                  deltaAnim *= deltaAnim;
+                  GL11.glTranslated(0.0, (double)(2.0F + deltaAnim), 0.0);
+                  GL11.glTranslated((double)portalx.getX() + 0.5, (double)portalx.getY() + 0.5, (double)portalx.getZ() + 0.5);
+                  GL11.glRotated((double)(deltaTime * 360.0F), 0.0, 1.0, 0.0);
+                  GL11.glRotated((double)(45.0F + deltaTime * 180.0F), 1.0, 0.0, 1.0);
+                  GL11.glTranslated(-((double)portalx.getX() + 0.5), -((double)portalx.getY() + 0.5), -((double)portalx.getZ() + 0.5));
+                  int frags = 40;
+
+                  for (int i = 0; i < frags; i++) {
+                     float iPC = (float)i / (float)frags;
+                     int flagCol = ColorUtils.swapAlpha(
+                        ColorUtils.fadeColor(espFillColor, espOutlineColor, 0.5F, (int)(iPC * 1000.0F)), 255.0F * ((double)iPC > 0.5 ? 1.0F - iPC : iPC) * 2.0F
+                     );
+                     float offsetCube = 0.1F + 0.25F * iPC;
                      GL11.glTranslated((double)portalx.getX() + 0.5, (double)portalx.getY() + 0.5, (double)portalx.getZ() + 0.5);
-                     GL11.glRotated((double)(deltaTime * 360.0F), 0.0, 1.0, 0.0);
-                     GL11.glRotated((double)(45.0F + deltaTime * 180.0F), 1.0, 0.0, 1.0);
+                     GL11.glRotated((double)(50.0F * deltaAnim * (0.25F + iPC * 0.75F)), 1.0, 0.0, 1.0);
                      GL11.glTranslated(-((double)portalx.getX() + 0.5), -((double)portalx.getY() + 0.5), -((double)portalx.getZ() + 0.5));
-                     int frags = 40;
-
-                     for (int i = 0; i < frags; i++) {
-                        float iPC = (float)i / (float)frags;
-                        int flagCol = ColorUtils.swapAlpha(
-                           ColorUtils.fadeColor(espFillColor, espOutlineColor, 0.5F, (int)(iPC * 1000.0F)),
-                           255.0F * ((double)iPC > 0.5 ? 1.0F - iPC : iPC) * 2.0F
-                        );
-                        float offsetCube = 0.1F + 0.25F * iPC;
-                        GL11.glTranslated((double)portalx.getX() + 0.5, (double)portalx.getY() + 0.5, (double)portalx.getZ() + 0.5);
-                        GL11.glRotated((double)(50.0F * deltaAnim * (0.25F + iPC * 0.75F)), 1.0, 0.0, 1.0);
-                        GL11.glTranslated(-((double)portalx.getX() + 0.5), -((double)portalx.getY() + 0.5), -((double)portalx.getZ() + 0.5));
-                        RenderUtils.drawCanisterBox(
-                           new AxisAlignedBB(
-                              (double)portalx.getX() + 0.5 - (double)offsetCube,
-                              (double)portalx.getY() + 0.5 - (double)offsetCube,
-                              (double)portalx.getZ() + 0.5 - (double)offsetCube,
-                              (double)portalx.getX() + 0.5 + (double)offsetCube,
-                              (double)portalx.getY() + 0.5 + (double)offsetCube,
-                              (double)portalx.getZ() + 0.5 + (double)offsetCube
-                           ),
-                           false,
-                           true,
-                           false,
-                           flagCol,
-                           flagCol,
-                           flagCol
-                        );
-                     }
-
-                     GL11.glPopMatrix();
+                     RenderUtils.drawCanisterBox(
+                        new AxisAlignedBB(
+                           (double)portalx.getX() + 0.5 - (double)offsetCube,
+                           (double)portalx.getY() + 0.5 - (double)offsetCube,
+                           (double)portalx.getZ() + 0.5 - (double)offsetCube,
+                           (double)portalx.getX() + 0.5 + (double)offsetCube,
+                           (double)portalx.getY() + 0.5 + (double)offsetCube,
+                           (double)portalx.getZ() + 0.5 + (double)offsetCube
+                        ),
+                        false,
+                        true,
+                        false,
+                        flagCol,
+                        flagCol,
+                        flagCol
+                     );
                   }
+
+                  GL11.glPopMatrix();
                }
             }
-         );
-      }
+         }
+      );
    }
 
    private void tesselatePearl(EntityEnderPearl entityEnderPearl, float darknessUnvalue) {
@@ -1803,9 +1846,7 @@ public class ESP extends Module {
 
          for (Vec3d vec : vectors) {
             if (!(++counter % 2 != 0 ^ counterMax % 2 == 0)) {
-               float pc = (float)counter / (float)counterMax;
-               pc = ((double)pc > 0.5 ? 1.0F - pc : pc) * 2.0F;
-               pc = pc > 1.0F ? 1.0F : (pc < 0.0F ? 0.0F : pc);
+               float pc = (float)MathUtils.easeInOutQuadWave((double)((float)counter / (float)counterMax));
                float aPC = MathUtils.clamp((float)counterMax / 20.0F, 0.0F, 1.0F) / 2.0F;
                int col = ColorUtils.getOverallColorFrom(
                   ClientColors.getColor1(0, darknessUnvalue / 7.0F * aPC), ClientColors.getColor2(0, darknessUnvalue * aPC), pc
@@ -1914,103 +1955,47 @@ public class ESP extends Module {
    }
 
    private void draw3d(float partialTicks) {
-      boolean players = this.Players.getBool() && this.PlayerMode.currentMode.equalsIgnoreCase("Glow");
-      boolean self = this.Self.getBool() && this.SelfMode.currentMode.equalsIgnoreCase("Glow");
-      boolean crystal = this.EnderCrystals.getBool();
-      boolean breakOver = this.BreakOver.getBool();
-      boolean storages = this.Storage.getBool();
-      boolean pearls = this.EnderPearl.getBool();
-      boolean tnt = this.TntPrimed.getBool() && this.TntMode.currentMode.equalsIgnoreCase("Glow");
       boolean voidHL = this.VoidHighlight.getBool();
-      boolean portals = this.Portals.getBool();
       if (voidHL) {
          this.drawVoidWarn(partialTicks);
       }
 
-      if (breakOver) {
-         this.renderOverSelect(getAlphaPC());
+      float alphaPC = getAlphaPC();
+      if (this.BreakOver.canBeRender()) {
+         this.renderOverSelect(alphaPC * this.BreakOver.getAnimation());
       }
 
-      if (storages && this.getTileEntities(storages, false, false, false).size() != 0) {
-         this.drawStorages(getAlphaPC());
+      if (!this.storages3dEList.isEmpty()) {
+         this.drawStorages(this.storages3dEList, alphaPC * this.Storage.getAnimation());
       }
 
-      if (pearls && this.getEntities(false, false, false, false, pearls, false).size() != 0) {
-         this.drawPearls(getAlphaPC());
+      if (!this.enderPearlsEList.isEmpty()) {
+         this.drawPearls(this.enderPearlsEList, alphaPC);
       }
 
-      if (portals && this.getTileEntities(false, false, false, portals).size() != 0) {
-         this.drawEndPortals(getAlphaPC());
+      if (!this.endPortalsEList.isEmpty()) {
+         this.drawEndPortals(this.endPortalsEList, alphaPC);
       }
 
-      if (this.getEntities(players, self, false, crystal, false, tnt).size() != 0) {
-         this.framebuffer = RenderUtils.createFrameBuffer(this.framebuffer);
-         this.glowFrameBuffer = RenderUtils.createFrameBuffer(this.glowFrameBuffer);
-         if (this.framebuffer == null) {
+      if (!this.players3dEList.isEmpty() || !this.crystalsEList.isEmpty() || !this.tnt3dEList.isEmpty()) {
+         this.framebuffer1 = RenderUtils.createFrameBuffer(this.framebuffer1);
+         this.glowFrameBuffer1 = RenderUtils.createFrameBuffer(this.glowFrameBuffer1);
+         if (this.framebuffer1 == null) {
             return;
          }
 
-         List<Entity> listDraw = this.getEntities(players, self, false, crystal, false, tnt);
-         this.framebuffer.framebufferClear();
-         this.framebuffer.bindFramebuffer(true);
          GL11.glAlphaFunc(516, 0.1F);
-         this.renderPlayers(partialTicks, listDraw);
-         this.framebuffer.unbindFramebuffer();
-         mc.getFramebuffer().bindFramebuffer(true);
+         this.framebuffer1.framebufferClear();
+         this.framebuffer1.bindFramebuffer(false);
+         GL11.glPushMatrix();
+         mc.entityRenderer.setupCameraTransform(mc.getRenderPartialTicks(), 2);
+         this.renderPlayers(partialTicks, this.players3dEList.stream().map(e -> (Entity)e).toList());
+         this.renderPlayers(partialTicks, this.crystalsEList.stream().map(e -> (Entity)e).toList());
+         this.renderPlayers(partialTicks, this.tnt3dEList.stream().map(e -> (Entity)e).toList());
+         GL11.glPopMatrix();
+         this.framebuffer1.unbindFramebuffer();
+         mc.getFramebuffer().bindFramebuffer(false);
       }
-   }
-
-   private List<Entity> getEntities(boolean players, boolean self, boolean items, boolean crystal, boolean pearl, boolean tnt) {
-      List<Entity> list = new ArrayList<>();
-      if (mc.world != null) {
-         mc.world
-            .getLoadedEntityList()
-            .forEach(
-               l -> {
-                  if (l != null
-                     && l.isEntityAlive()
-                     && (
-                        l instanceof EntityPlayerSP && mc.gameSettings.thirdPersonView != 0
-                           || (RenderUtils.isInView(l) || l instanceof EntityEnderPearl || l instanceof EntityTNTPrimed) && !(l instanceof EntityPlayerSP)
-                     )
-                     && (
-                        l instanceof EntityOtherPlayerMP && players
-                           || l instanceof EntityPlayerSP && self
-                           || l instanceof EntityItem && items
-                           || l instanceof EntityEnderCrystal && crystal
-                           || l instanceof EntityEnderPearl && pearl
-                           || l instanceof EntityTNTPrimed && tnt
-                     )) {
-                     list.add(l);
-                  }
-               }
-            );
-      }
-
-      return list;
-   }
-
-   private List<TileEntity> getTileEntities(boolean storages, boolean beacon, boolean spawner, boolean endPortal) {
-      List<TileEntity> list = new ArrayList<>();
-      if (mc.world != null) {
-         mc.world
-            .getLoadedTileEntityList()
-            .forEach(
-               l -> {
-                  if (l != null
-                     && (
-                        (l instanceof TileEntityChest || l instanceof TileEntityEnderChest || l instanceof TileEntityShulkerBox) && storages
-                           || l instanceof TileEntityBeacon && beacon
-                           || l instanceof TileEntityMobSpawner && spawner
-                           || l instanceof TileEntityEndPortal && endPortal
-                     )) {
-                     list.add(l);
-                  }
-               }
-            );
-      }
-
-      return list;
    }
 
    private class ColVecsWithEnt {
@@ -2034,7 +2019,7 @@ public class ESP extends Module {
                .world
                .getLoadedEntityList()
                .stream()
-               .map(Entity::getLivingBaseOf)
+               .<EntityLivingBase>map(Entity::getLivingBaseOf)
                .filter(Objects::nonNull)
                .filter(e -> e.getUniqueID() == this.base.getUniqueID())
                .findAny()
@@ -2083,6 +2068,30 @@ public class ESP extends Module {
 
       boolean isToRemove() {
          return (float)(System.currentTimeMillis() - this.startTime) >= this.maxTime;
+      }
+   }
+
+   private class Scoper {
+      private final Vector4d vec4d;
+      private final Runnable pre;
+      private final Runnable post;
+
+      public Scoper(Vector4d vec4d, Runnable pre, Runnable post) {
+         this.vec4d = vec4d;
+         this.pre = pre;
+         this.post = post;
+      }
+
+      public Vector4d getVec4d() {
+         return this.vec4d;
+      }
+
+      public Runnable getPre() {
+         return this.pre;
+      }
+
+      public Runnable getPost() {
+         return this.post;
       }
    }
 

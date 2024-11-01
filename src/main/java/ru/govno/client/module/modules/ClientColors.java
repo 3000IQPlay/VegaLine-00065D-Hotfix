@@ -8,1683 +8,1197 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 import ru.govno.client.clickgui.ClickGuiScreen;
 import ru.govno.client.module.Module;
+import ru.govno.client.module.modules.ClientTune;
 import ru.govno.client.module.settings.ColorSettings;
 import ru.govno.client.module.settings.FloatSettings;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.module.settings.Settings;
 import ru.govno.client.newfont.CFontRenderer;
 import ru.govno.client.newfont.Fonts;
-import ru.govno.client.utils.TimerHelper;
 import ru.govno.client.utils.Math.MathUtils;
+import ru.govno.client.utils.Math.TimerHelper;
 import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 import ru.govno.client.utils.Render.StencilUtil;
 
-public class ClientColors extends Module {
-   private static final long currentTime = System.currentTimeMillis();
-   private static final int[] COLLECT_COLORS = new int[360];
-   private static boolean FADE_STATUS;
-   private static int TIMED_INDEX;
-   public String[] presetsList = new String[ClientColors.PresetColors.values().length];
-   public String[] modesList = new String[]{"Astolfo", "Rainbow", "Colored", "TwoColored", "Fade", "Presets"};
-   public static ClientColors get;
-   public FloatSettings XPos;
-   public FloatSettings YPos;
-   public ModeSettings Mode;
-   public ModeSettings Preset;
-   public ColorSettings Pick1;
-   public ColorSettings Pick2;
-   private static ClientColors.PresetColors prevPreset;
-   private static final AnimationUtils presetStepAnim = new AnimationUtils(0.0F, 0.0F, 0.035F);
-   static boolean smoothPresets;
-   static float presetStepAnimGetAnim = 0.0F;
-   static String prevMode;
-   static AnimationUtils modeStepAnim = new AnimationUtils(0.0F, 0.0F, 0.025F);
-   static float modeStepAnimGetAnim = 0.0F;
+public class ClientColors
+extends Module {
+    private static final long currentTime = System.currentTimeMillis();
+    private static final int[] COLLECT_COLORS = new int[360];
+    private static boolean FADE_STATUS;
+    private static int TIMED_INDEX;
+    private static final TimerHelper frameDelay;
+    private static PresetColors currentPreset;
+    public String[] presetsList = new String[PresetColors.values().length];
+    public String[] modesList = new String[]{"Astolfo", "Rainbow", "Colored", "TwoColored", "Fade", "Presets"};
+    public static ClientColors get;
+    public FloatSettings XPos;
+    public FloatSettings YPos;
+    public ModeSettings Mode;
+    public ModeSettings Preset;
+    public ColorSettings Pick1;
+    public ColorSettings Pick2;
+    private static PresetColors prevPreset;
+    private static final AnimationUtils presetStepAnim;
+    static float presetStepAnimGetAnim;
+    static String prevMode;
+    static AnimationUtils modeStepAnim;
+    static float modeStepAnimGetAnim;
 
-   public static void alwaysColorUpdate() {
-      if (get != null) {
-         int colorDelay = 1800;
-         float timePC = (float)(System.currentTimeMillis() % (long)colorDelay) / (float)colorDelay;
-         TIMED_INDEX = (int)(timePC * 360.0F);
-         String mode = get.Mode.currentMode;
-         if (prevMode == null) {
+    public static void alwaysColorUpdate() {
+        if (get == null) {
+            return;
+        }
+        if (!frameDelay.hasReached(16.66666603088379)) {
+            return;
+        }
+        frameDelay.reset();
+        int colorDelay = 1500;
+        float timePC = (float)(System.currentTimeMillis() % (long)colorDelay) / (float)colorDelay;
+        TIMED_INDEX = (int)(timePC * 360.0f);
+        String mode = ClientColors.get.Mode.currentMode;
+        if (prevMode == null) {
             prevMode = mode;
-         }
-
-         FADE_STATUS = mode.equalsIgnoreCase("Astolfo")
-            || mode.equalsIgnoreCase("Rainbow")
-            || mode.equalsIgnoreCase("Fade")
-            || mode.equalsIgnoreCase("Presets") && getPresetByName(get.Preset.currentMode).twoColored;
-         if (FADE_STATUS) {
-            for (int colorIndex = 0; colorIndex < 360; colorIndex++) {
-               COLLECT_COLORS[colorIndex] = getColors(colorIndex)[0];
+        }
+        FADE_STATUS = mode.equalsIgnoreCase("Astolfo") || mode.equalsIgnoreCase("Rainbow") || mode.equalsIgnoreCase("Fade") || mode.equalsIgnoreCase("Presets") && ClientColors.getPresetByName((String)ClientColors.get.Preset.currentMode).twoColored;
+        currentPreset = ClientColors.getCurrentPreset();
+        int skipIndeces = 6;
+        if (FADE_STATUS) {
+            for (int colorIndex = 0; colorIndex < 360; colorIndex += skipIndeces) {
+                int color = ClientColors.getColors(colorIndex)[0];
+                for (int iPlus = 0; iPlus < skipIndeces; ++iPlus) {
+                    ClientColors.COLLECT_COLORS[colorIndex + iPlus] = color;
+                }
             }
-         } else {
-            for (int colorIndex = 0; colorIndex < 360; colorIndex++) {
-               int[] colors = getColors(colorIndex);
-               int color = ColorUtils.getOverallColorFrom(colors[0], colors[1], (float)colorIndex / 360.0F);
-               COLLECT_COLORS[colorIndex] = color;
+        } else {
+            for (int colorIndex = 0; colorIndex < 360; colorIndex += skipIndeces) {
+                int[] colors = ClientColors.getColors(colorIndex);
+                int color = ColorUtils.getOverallColorFrom(colors[0], colors[1], (float)colorIndex / 360.0f);
+                for (int iPlus = 0; iPlus < skipIndeces; ++iPlus) {
+                    ClientColors.COLLECT_COLORS[colorIndex + iPlus] = color;
+                }
             }
-         }
-      }
-   }
+        }
+    }
 
-   private static int getCollectedColors(int index) {
-      return COLLECT_COLORS[(index + 360000) % 360];
-   }
+    private static int getCollectedColors(int index) {
+        return COLLECT_COLORS[(index + 360000) % 360];
+    }
 
-   private static int getCollectedColor(int index) {
-      return getCollectedColors(index / 3);
-   }
+    private static int getCollectedColor(int index) {
+        return ClientColors.getCollectedColors(index / 3);
+    }
 
-   private static int getCollectedColor(int index, float alphaPC) {
-      int color = getCollectedColors(index / 3);
-      return ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) * alphaPC);
-   }
+    private static int getCollectedColor(int index, float alphaPC) {
+        int color = ClientColors.getCollectedColors(index / 3);
+        return alphaPC == 1.0f ? color : ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) * alphaPC);
+    }
 
-   private static int getCollectedColorFade(int index) {
-      return getCollectedColors(index / 3 + TIMED_INDEX);
-   }
+    private static int getCollectedColorFade(int index) {
+        return ClientColors.getCollectedColors(index / 3 + TIMED_INDEX);
+    }
 
-   private static int getCollectedColorFade(int index, float alphaPC) {
-      int color = getCollectedColors(index / 3 + TIMED_INDEX);
-      return ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) * alphaPC);
-   }
+    private static int getCollectedColorFade(int index, float alphaPC) {
+        int color = ClientColors.getCollectedColors(index / 3 + TIMED_INDEX);
+        return ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) * alphaPC);
+    }
 
-   public ClientColors() {
-      super("ClientColors", 0, Module.Category.MISC, false, () -> false);
-      float w = (float)new ScaledResolution(mc).getScaledWidth();
-      float h = (float)new ScaledResolution(mc).getScaledHeight();
-      this.settings.add(this.XPos = new FloatSettings("XPos", (w - 115.0F) / w, 1.0F, 0.0F, this));
-      this.settings.add(this.YPos = new FloatSettings("YPos", 55.0F / h, 1.0F, 0.0F, this));
-      this.settings.add(this.Mode = new ModeSettings("Mode", "Colored", this, this.modesList));
-      int i = 0;
+    public ClientColors() {
+        super("ClientColors", 0, Module.Category.MISC, false, () -> false);
+        float w = new ScaledResolution(mc).getScaledWidth();
+        float h = new ScaledResolution(mc).getScaledHeight();
+        this.XPos = new FloatSettings("XPos", (w - 115.0f) / w, 1.0f, 0.0f, this);
+        this.settings.add(this.XPos);
+        this.YPos = new FloatSettings("YPos", 55.0f / h, 1.0f, 0.0f, this);
+        this.settings.add(this.YPos);
+        this.Mode = new ModeSettings("Mode", "Colored", this, this.modesList);
+        this.settings.add(this.Mode);
+        int i = 0;
+        for (PresetColors preset : PresetColors.values()) {
+            this.presetsList[i] = preset.name;
+            ++i;
+        }
+        this.Preset = new ModeSettings("Preset", this.presetsList[0], this, this.presetsList);
+        this.settings.add(this.Preset);
+        this.Pick1 = new ColorSettings("Pick1", ColorUtils.getColor(254, 39, 171), this);
+        this.settings.add(this.Pick1);
+        this.Pick2 = new ColorSettings("Pick2", ColorUtils.getColor(255, 173, 139), this);
+        this.settings.add(this.Pick2);
+        get = this;
+    }
 
-      for (ClientColors.PresetColors preset : ClientColors.PresetColors.values()) {
-         this.presetsList[i] = preset.name;
-         i++;
-      }
+    public static PresetColors getPresetByName(String name) {
+        return Arrays.asList(PresetColors.values()).stream().filter(preset -> preset.name.equalsIgnoreCase(name)).findAny().orElse(null);
+    }
 
-      this.settings.add(this.Preset = new ModeSettings("Preset", this.presetsList[0], this, this.presetsList));
-      this.settings.add(this.Pick1 = new ColorSettings("Pick1", ColorUtils.getColor(254, 39, 171), this));
-      this.settings.add(this.Pick2 = new ColorSettings("Pick2", ColorUtils.getColor(255, 173, 139), this));
-      get = this;
-   }
+    public static PresetColors getCurrentPreset() {
+        PresetColors preset = ClientColors.getPresetByName(ClientColors.get.Preset.currentMode);
+        if (prevPreset == null) {
+            prevPreset = preset;
+        }
+        return preset;
+    }
 
-   public static ClientColors.PresetColors getPresetByName(String name) {
-      return Arrays.asList(ClientColors.PresetColors.values()).stream().filter(preset -> preset.name.equalsIgnoreCase(name)).findAny().orElse(null);
-   }
+    public static int[] getColorsByMode(String mode, int index) {
+        float indexPC = (float)((index + 360000) % 360) / 360.0f;
+        int col1 = -1;
+        int col2 = -1;
+        switch (mode) {
+            case "Presets": {
+                indexPC = MathUtils.valWave01(indexPC);
+                if (presetStepAnimGetAnim != 0.0f) {
+                    if (prevPreset == null) {
+                        prevPreset = currentPreset;
+                    }
+                    int prevColor1 = ColorUtils.getOverallColorFrom(ClientColors.prevPreset.color1, ClientColors.prevPreset.color2, indexPC);
+                    int color2 = ColorUtils.getOverallColorFrom(ClientColors.currentPreset.color1, ClientColors.currentPreset.color2, indexPC);
+                    col2 = col1 = ColorUtils.getOverallColorFrom(prevColor1, color2, presetStepAnimGetAnim);
+                    break;
+                }
+                col2 = col1 = ColorUtils.getOverallColorFrom(ClientColors.currentPreset.color1, ClientColors.currentPreset.color2, indexPC);
+                break;
+            }
+            case "Colored": {
+                col1 = ClientColors.get.Pick1.color;
+                col2 = ClientColors.get.Pick1.color;
+                break;
+            }
+            case "TwoColored": 
+            case "Fade": {
+                indexPC = MathUtils.valWave01(indexPC);
+                col2 = col1 = ColorUtils.getOverallColorFrom(ClientColors.get.Pick1.color, ClientColors.get.Pick2.color, indexPC);
+                break;
+            }
+            case "Astolfo": {
+                float wave = MathUtils.valWave01(indexPC);
+                col1 = Color.HSBtoRGB(0.55f + wave * 0.45f, 0.6f, 1.0f);
+                col2 = Color.HSBtoRGB(0.55f + (0.5f + wave) % 1.0f * 0.45f, 0.6f, 1.0f);
+                break;
+            }
+            case "Rainbow": {
+                col1 = Color.getHSBColor(indexPC, 0.8f, 1.0f).getRGB();
+                col2 = Color.getHSBColor((indexPC + 0.5f) % 1.0f, 0.8f, 1.0f).getRGB();
+            }
+        }
+        return new int[]{col1, col2};
+    }
 
-   public static ClientColors.PresetColors getCurrentPreset() {
-      ClientColors.PresetColors preset = getPresetByName(get.Preset.currentMode);
-      if (prevPreset == null) {
-         prevPreset = preset;
-      }
+    public static int[] getColors(int index) {
+        String mode = ClientColors.get.Mode.currentMode;
+        if (prevMode == null) {
+            prevMode = mode;
+        }
+        if (modeStepAnimGetAnim != 0.0f) {
+            int[] colors2 = ClientColors.getColorsByMode(mode, index);
+            int[] colors1 = prevMode != mode ? ClientColors.getColorsByMode(prevMode, index) : colors2;
+            int c1 = ColorUtils.getOverallColorFrom(colors1[0], colors2[0], modeStepAnimGetAnim);
+            int c2 = ColorUtils.getOverallColorFrom(colors1[1], colors2[1], modeStepAnimGetAnim);
+            return new int[]{c1, c2};
+        }
+        return ClientColors.getColorsByMode(ClientColors.get.Mode.currentMode, index);
+    }
 
-      return preset;
-   }
+    public static int getColor1(int index) {
+        return FADE_STATUS ? ClientColors.getCollectedColorFade(index) : ClientColors.getCollectedColor(index);
+    }
 
-   public static int[] getColorsByMode(String mode, int index) {
-      float indexPC = (float)((index + 360000) % 360) / 360.0F;
-      int col1 = -1;
-      int col2 = -1;
-      switch (mode) {
-         case "Presets":
-            indexPC = (float)MathUtils.easeInOutQuadWave((double)indexPC);
-            ClientColors.PresetColors preset = getCurrentPreset();
-            if (presetStepAnimGetAnim != 0.0F) {
-               if (ClientColors.prevPreset == null) {
-                  ClientColors.prevPreset = preset;
-               }
+    public static int getColor2(int index) {
+        return FADE_STATUS ? ClientColors.getCollectedColorFade(index) : ClientColors.getCollectedColor(index += 180);
+    }
 
-               ClientColors.PresetColors prevPreset = getPresetByName(ClientColors.prevPreset.name());
-               int prevColor1 = ColorUtils.getOverallColorFrom(prevPreset.color1, prevPreset.color2, indexPC);
-               int color2 = ColorUtils.getOverallColorFrom(preset.color1, preset.color2, indexPC);
-               int var13 = ColorUtils.getOverallColorFrom(prevColor1, color2, presetStepAnimGetAnim);
-               col2 = col1 = ColorUtils.getOverallColorFrom(var13, 0, (float)MathUtils.easeInOutQuadWave((double)presetStepAnimGetAnim));
+    public static int getColor1(int index, float aPC) {
+        return FADE_STATUS ? ClientColors.getCollectedColorFade(index, aPC) : ClientColors.getCollectedColor(index, aPC);
+    }
+
+    public static int getColor2(int index, float aPC) {
+        return FADE_STATUS ? ClientColors.getCollectedColorFade(index, aPC) : ClientColors.getCollectedColor(index += 180, aPC);
+    }
+
+    public static int getColorQ(int num) {
+        return ClientColors.getColor1(-num * 90 * 3 + 90);
+    }
+
+    public static int getColorQ(int num, float alphaPC) {
+        return ClientColors.getColor1(-num * 90 * 3 + 90, alphaPC);
+    }
+
+    public static int getColor1() {
+        return ClientColors.getColor1(0);
+    }
+
+    public static int getColor2() {
+        return ClientColors.getColor1(0);
+    }
+
+    static {
+        frameDelay = TimerHelper.TimerHelperReseted();
+        presetStepAnim = new AnimationUtils(0.0f, 0.0f, 0.035f);
+        modeStepAnim = new AnimationUtils(0.0f, 0.0f, 0.025f);
+        modeStepAnimGetAnim = 0.0f;
+    }
+
+    static enum PresetColors {
+        WHITE(-1, -1, false, "White"),
+        PINK(ColorUtils.getColor(255, 115, 220), ColorUtils.getColor(255, 0, 190), true, "Pink"),
+        WINTER(ColorUtils.getColor(165, 235, 255), ColorUtils.getColor(240, 155, 255), true, "Winter"),
+        BLOODY(ColorUtils.getColor(255, 0, 0), ColorUtils.getColor(135, 0, 0), true, "Bloody"),
+        HERO(ColorUtils.getColor(255, 0, 0), ColorUtils.getColor(0, 255, 0), true, "Hero"),
+        EARLBLUE(ColorUtils.getColor(50, 100, 50), ColorUtils.getColor(0, 0, 255), true, "EarlBlue"),
+        FLAME(ColorUtils.getColor(255, 95, 0), ColorUtils.getColor(255, 195, 0), true, "Flame"),
+        NEON(ColorUtils.getColor(160, 100, 255), ColorUtils.getColor(75, 60, 185), true, "Neon"),
+        STELL(ColorUtils.getColor(118, 114, 232), ColorUtils.getColor(59, 59, 122), true, "Stell"),
+        GRAY(ColorUtils.getColor(90, 92, 112), ColorUtils.getColor(90, 92, 112), false, "Gray"),
+        NIGHTFALL(ColorUtils.getColor(115, 0, 255), ColorUtils.getColor(255, 80, 0), true, "NightFall"),
+        BROWN(ColorUtils.getColor(87, 43, 0), ColorUtils.getColor(87, 43, 0), false, "Brown"),
+        BREATH(ColorUtils.getColor(120, 255, 227), ColorUtils.getColor(0, 186, 255), true, "Breath"),
+        OCEAN(ColorUtils.getColor(251, 255, 38), ColorUtils.getColor(95, 255, 38), true, "Ocean"),
+        BLUESKY(ColorUtils.getColor(60, 205, 255), ColorUtils.getColor(60, 205, 255), false, "BlueSky"),
+        CANDY(ColorUtils.getColor(255, 117, 252), ColorUtils.getColor(255, 45, 45), true, "Candy"),
+        CURRANT(ColorUtils.getColor(0, 40, 255), ColorUtils.getColor(255, 0, 70), true, "Currant"),
+        AZURE(ColorUtils.getColor(100, 255, 100), ColorUtils.getColor(100, 255, 100), false, "Azure"),
+        DAWN(ColorUtils.getColor(255, 80, 0), ColorUtils.getColor(31, 37, 111), true, "Dawn"),
+        SWAMP(ColorUtils.getColor(77, 142, 132), ColorUtils.getColor(0, 235, 255), true, "Swamp");
+
+        boolean twoColored;
+        int color1;
+        int color2;
+        String name;
+
+        private PresetColors(int color1, int color2, boolean twoColored, String name) {
+            this.color1 = color1;
+            this.color2 = color2;
+            this.twoColored = twoColored;
+            this.name = name;
+        }
+    }
+
+    public static class ClientColorsHud {
+        AnimationUtils heightAnimation = new AnimationUtils(22.0f, 22.0f, 0.125f);
+        AnimationUtils widthAnimation = new AnimationUtils(22.0f, 22.0f, 0.125f);
+        String className = "Client color ui";
+        float x;
+        float y;
+        AnimationUtils xRepos = new AnimationUtils(this.x, this.x, 0.15f);
+        AnimationUtils yRepos = new AnimationUtils(this.y, this.y, 0.15f);
+        AnimationUtils rotate = new AnimationUtils(0.0f, 0.0f, 0.125f);
+        boolean dragging = false;
+        float dragX = 0.0f;
+        float dragY = 0.0f;
+        boolean open = false;
+        TimerHelper soundTicker = new TimerHelper();
+        float offsetX = -1.2312312E8f;
+        float offsetY = -1.2312312E8f;
+        float offsetX2 = -1.2312312E8f;
+        float offsetX3 = -1.2312312E8f;
+        boolean dragginggr = false;
+        boolean dragginghsb = false;
+        boolean draggingalpha = false;
+        float offsetXs = -1.2312312E8f;
+        float offsetYs = -1.2312312E8f;
+        float offsetX2s = -1.2312312E8f;
+        float offsetX3s = -1.2312312E8f;
+        boolean dragginggrs = false;
+        boolean dragginghsbs = false;
+        boolean draggingalphas = false;
+        public boolean hover;
+
+        public void setXYMenu(float x, float y, ScaledResolution sr) {
+            ((FloatSettings)ClientColors.get.settings.get(0)).setFloat(x / (float)sr.getScaledWidth());
+            ((FloatSettings)ClientColors.get.settings.get(1)).setFloat(y / (float)sr.getScaledHeight());
+            this.x = x;
+            this.y = y;
+        }
+
+        public boolean isHover(float x, float y, float w, float h, int mouseX, int mouseY) {
+            return (float)mouseX <= x + w && (float)mouseX >= x && (float)mouseY <= y + h && (float)mouseY >= y;
+        }
+
+        public float getWidth() {
+            this.widthAnimation.to = 100.0f;
+            return this.widthAnimation.getAnim();
+        }
+
+        public float getRotate() {
+            this.rotate.to = this.x - this.getX();
+            return MathUtils.clamp(this.rotate.getAnim() / 2.25f, -90.0f, 90.0f);
+        }
+
+        public float toHeight() {
+            return this.open ? MathUtils.clamp(this.getTotalElementsHeight(), 106.0f, 202.0f) : 22.0f;
+        }
+
+        public void heightCalculate() {
+            this.heightAnimation.to = this.toHeight();
+        }
+
+        public float getHeight() {
+            return this.heightAnimation.getAnim();
+        }
+
+        public void updatePosXY() {
+            this.xRepos.to = this.x;
+            this.yRepos.to = this.y;
+        }
+
+        public float getX() {
+            return this.xRepos.getAnim();
+        }
+
+        public float getY() {
+            return this.yRepos.getAnim();
+        }
+
+        public float getScrollY() {
+            return ClickGuiScreen.scrollAnimation.getAnim();
+        }
+
+        public void dragUpdate(int mouseX, int mouseY) {
+            ScaledResolution sr = new ScaledResolution(Module.mc);
+            if (!this.dragging) {
+                this.setXYMenu(ClientColors.get.XPos.getFloat() * (float)sr.getScaledWidth(), ClientColors.get.YPos.getFloat() * (float)sr.getScaledHeight(), sr);
+                this.dragX = (float)mouseX - this.x;
+                this.dragY = (float)mouseY - this.y;
             } else {
-               col2 = col1 = ColorUtils.getOverallColorFrom(preset.color1, preset.color2, indexPC);
+                this.setXYMenu((float)mouseX - this.dragX, (float)mouseY - this.dragY, sr);
             }
-            break;
-         case "Colored":
-            col1 = get.Pick1.color;
-            col2 = get.Pick1.color;
-            break;
-         case "TwoColored":
-            indexPC = (float)MathUtils.easeInOutQuadWave((double)indexPC);
-            col2 = col1 = ColorUtils.getOverallColorFrom(get.Pick1.color, get.Pick2.color, indexPC);
-            break;
-         case "Fade":
-            col2 = col1 = ColorUtils.getOverallColorFrom(get.Pick1.color, get.Pick2.color, (float)MathUtils.easeInOutQuadWave((double)indexPC));
-            break;
-         case "Astolfo":
-            col1 = Color.HSBtoRGB(0.55F + (float)MathUtils.easeInOutQuadWave((double)indexPC) * 0.45F, 0.6F, 1.0F);
-            col2 = Color.HSBtoRGB(0.55F + (0.5F + (float)MathUtils.easeInOutQuadWave((double)indexPC)) % 1.0F * 0.45F, 0.6F, 1.0F);
-            break;
-         case "Rainbow":
-            col1 = Color.getHSBColor(indexPC, 0.8F, 1.0F).getRGB();
-            col2 = Color.getHSBColor((indexPC + 0.5F) % 1.0F, 0.8F, 1.0F).getRGB();
-      }
+        }
 
-      return new int[]{col1, col2};
-   }
-
-   public static int[] getColors(int index) {
-      String mode = get.Mode.currentMode;
-      if (prevMode == null) {
-         prevMode = mode;
-      }
-
-      if (modeStepAnimGetAnim != 0.0F) {
-         int[] colors2 = getColorsByMode(mode, index);
-         int[] colors1 = prevMode != mode ? getColorsByMode(prevMode, index) : colors2;
-         int c1 = ColorUtils.getOverallColorFrom(colors1[0], colors2[0], modeStepAnimGetAnim);
-         int c2 = ColorUtils.getOverallColorFrom(colors1[1], colors2[1], modeStepAnimGetAnim);
-         return new int[]{c1, c2};
-      } else {
-         return getColorsByMode(get.Mode.currentMode, index);
-      }
-   }
-
-   public static int getColor1(int index) {
-      return FADE_STATUS ? getCollectedColorFade(index) : getCollectedColor(index);
-   }
-
-   public static int getColor2(int index) {
-      index += 180;
-      return FADE_STATUS ? getCollectedColorFade(index) : getCollectedColor(index);
-   }
-
-   public static int getColor1(int index, float aPC) {
-      return FADE_STATUS ? getCollectedColorFade(index, aPC) : getCollectedColor(index, aPC);
-   }
-
-   public static int getColor2(int index, float aPC) {
-      index += 180;
-      return FADE_STATUS ? getCollectedColorFade(index, aPC) : getCollectedColor(index, aPC);
-   }
-
-   public static int getColorQ(int num) {
-      return getColor1(-num * 90 * 3 + 90);
-   }
-
-   public static int getColorQ(int num, float alphaPC) {
-      return getColor1(-num * 90 * 3 + 90, alphaPC);
-   }
-
-   public static int getColor1() {
-      return getColor1(0);
-   }
-
-   public static int getColor2() {
-      return getColor1(0);
-   }
-
-   public static class ClientColorsHud {
-      AnimationUtils heightAnimation = new AnimationUtils(22.0F, 22.0F, 0.125F);
-      AnimationUtils widthAnimation = new AnimationUtils(22.0F, 22.0F, 0.125F);
-      String className = "Client color ui";
-      float x;
-      float y;
-      AnimationUtils xRepos;
-      AnimationUtils yRepos;
-      AnimationUtils rotate;
-      boolean dragging;
-      float dragX;
-      float dragY;
-      boolean open;
-      TimerHelper soundTicker;
-      float offsetX;
-      float offsetY;
-      float offsetX2;
-      float offsetX3;
-      boolean dragginggr;
-      boolean dragginghsb;
-      boolean draggingalpha;
-      float offsetXs;
-      float offsetYs;
-      float offsetX2s;
-      float offsetX3s;
-      boolean dragginggrs;
-      boolean dragginghsbs;
-      boolean draggingalphas;
-      public boolean hover;
-
-      public void setXYMenu(float x, float y, ScaledResolution sr) {
-         ((FloatSettings)ClientColors.get.settings.get(0)).setFloat(x / (float)sr.getScaledWidth());
-         ((FloatSettings)ClientColors.get.settings.get(1)).setFloat(y / (float)sr.getScaledHeight());
-         this.x = x;
-         this.y = y;
-      }
-
-      public boolean isHover(float x, float y, float w, float h, int mouseX, int mouseY) {
-         return (float)mouseX <= x + w && (float)mouseX >= x && (float)mouseY <= y + h && (float)mouseY >= y;
-      }
-
-      public float getWidth() {
-         this.widthAnimation.to = 100.0F;
-         return this.widthAnimation.getAnim();
-      }
-
-      public float getRotate() {
-         this.rotate.to = this.x - this.getX();
-         return MathUtils.clamp(this.rotate.getAnim() / 2.25F, -90.0F, 90.0F);
-      }
-
-      public float toHeight() {
-         return this.open ? MathUtils.clamp(this.getTotalElementsHeight(), 106.0F, 202.0F) : 22.0F;
-      }
-
-      public void heightCalculate() {
-         this.heightAnimation.to = this.toHeight();
-      }
-
-      public float getHeight() {
-         return this.heightAnimation.getAnim();
-      }
-
-      public void updatePosXY() {
-         this.xRepos.to = this.x;
-         this.yRepos.to = this.y;
-      }
-
-      public float getX() {
-         return this.xRepos.getAnim();
-      }
-
-      public float getY() {
-         return this.yRepos.getAnim();
-      }
-
-      public float getScrollY() {
-         return ClickGuiScreen.scrollAnimation.getAnim();
-      }
-
-      public void dragUpdate(int mouseX, int mouseY) {
-         ScaledResolution sr = new ScaledResolution(Module.mc);
-         if (!this.dragging) {
-            this.setXYMenu(ClientColors.get.XPos.getFloat() * (float)sr.getScaledWidth(), ClientColors.get.YPos.getFloat() * (float)sr.getScaledHeight(), sr);
-            this.dragX = (float)mouseX - this.x;
-            this.dragY = (float)mouseY - this.y;
-         } else {
-            this.setXYMenu((float)mouseX - this.dragX, (float)mouseY - this.dragY, sr);
-         }
-      }
-
-      float getModesHeight() {
-         float yStep = 10.0F;
-         ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(2);
-
-         for (String mode : setting.modes) {
-            yStep += 10.0F;
-         }
-
-         return yStep;
-      }
-
-      public void drawColorModes(float x, float y, float w, float h, ScaledResolution sr, float alphaPC) {
-         ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(2);
-         String currentMode = ClientColors.get.Mode.currentMode;
-         RenderUtils.drawAlphedRect((double)x, (double)y, (double)(x + w), (double)(y + h), ColorUtils.getColor(0, 0, 0, 60.0F * alphaPC));
-         RenderUtils.drawLightContureRect((double)x, (double)y, (double)(x + w), (double)(y + h), ColorUtils.getColor(255, 255, 255, 60.0F * alphaPC));
-         int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0F * alphaPC);
-         int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0F * alphaPC);
-         int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0F * alphaPC);
-         int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0F * alphaPC);
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x + w, y + h, 1.0F, 9.0F, czC1, czC2, czC3, czC4, true, false, true
-         );
-         if (255.0F * alphaPC >= 28.0F && this.isInRenderZone(y, 10.0F)) {
-            Fonts.mntsb_15
-               .drawString("Color mode", (double)(x + 3.0F), (double)(y + 3.0F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
-         }
-
-         float yStep = 10.0F;
-
-         for (String mode : setting.modes) {
-            if (this.isInRenderZone(y + yStep, 10.0F)) {
-               int color1 = mode.equalsIgnoreCase(currentMode) ? ClientColors.getColor1(0) : -1;
-               int color2 = mode.equalsIgnoreCase(currentMode) ? ClientColors.getColor2(0) : -1;
-               int colorSelect1 = ColorUtils.getColor(255, 255, 255, 20.0F * alphaPC);
-               int colorSelect2 = ColorUtils.getColor(255, 255, 255, 20.0F * alphaPC);
-               RenderUtils.drawFullGradientRectPro(x, y + yStep, x + w, y + yStep + 10.0F, colorSelect1, colorSelect2, colorSelect2, colorSelect1, false);
-               if (mode.equalsIgnoreCase(currentMode)) {
-                  float changePC = ClientColors.modeStepAnimGetAnim;
-                  if ((double)changePC < 0.5) {
-                     changePC *= 2.0F;
-                     changePC = (double)changePC > 0.5 ? 1.0F - changePC : changePC;
-                     changePC *= 2.0F;
-                  } else {
-                     changePC = 0.0F;
-                  }
-
-                  colorSelect1 = ColorUtils.swapAlpha(color1, (45.0F + changePC * 50.0F) * alphaPC);
-                  colorSelect2 = ColorUtils.swapAlpha(color2, (45.0F + changePC * 50.0F) * alphaPC);
-                  float WMM = w / 2.0F - (float)Fonts.comfortaaBold_14.getStringWidth(mode) / 2.0F;
-                  RenderUtils.drawFullGradientRectPro(x, y + yStep, x + w, y + yStep + 10.0F, colorSelect1, colorSelect2, colorSelect2, colorSelect1, true);
-                  changePC = ClientColors.modeStepAnimGetAnim;
-                  changePC = (double)changePC > 0.5 ? 1.0F - changePC : changePC;
-                  changePC *= 2.0F;
-                  RenderUtils.drawAlphedRect(
-                     (double)x,
-                     (double)(y + yStep),
-                     (double)(x + 1.0F),
-                     (double)(y + yStep + 10.0F * ClientColors.modeStepAnimGetAnim),
-                     ColorUtils.swapAlpha(-1, 255.0F * changePC * alphaPC)
-                  );
-                  RenderUtils.drawAlphedRect(
-                     (double)(x + w - 1.0F),
-                     (double)(y + yStep + 10.0F * (1.0F - ClientColors.modeStepAnimGetAnim)),
-                     (double)(x + w),
-                     (double)(y + yStep + 10.0F),
-                     ColorUtils.swapAlpha(-1, 255.0F * changePC * alphaPC)
-                  );
-                  RenderUtils.drawAlphedSideways(
-                     (double)x,
-                     (double)(y + yStep),
-                     (double)(x + w * ClientColors.modeStepAnimGetAnim),
-                     (double)(y + yStep + 10.0F),
-                     0,
-                     ColorUtils.swapAlpha(-1, 255.0F * changePC * alphaPC),
-                     true
-                  );
-                  RenderUtils.drawAlphedSideways(
-                     (double)(x + w * ClientColors.modeStepAnimGetAnim),
-                     (double)(y + yStep),
-                     (double)(x + w),
-                     (double)(y + yStep + 10.0F),
-                     ColorUtils.swapAlpha(-1, 255.0F * changePC * alphaPC),
-                     0,
-                     true
-                  );
-               }
-
-               int i = 0;
-
-               for (char c : mode.toCharArray()) {
-                  int modeColor = mode.equalsIgnoreCase(currentMode)
-                     ? ColorUtils.getOverallColorFrom(
-                        ClientColors.getColor1(i), ClientColors.getColor2(i), (float)(i / Fonts.comfortaaBold_14.getStringWidth(mode))
-                     )
-                     : -1;
-                  if (255.0F * alphaPC >= 33.0F) {
-                     Fonts.comfortaaBold_14
-                        .drawStringWithShadow(
-                           String.valueOf(c),
-                           (double)(x + w / 2.0F - (float)(Fonts.comfortaaBold_14.getStringWidth(mode) / 2) + (float)i),
-                           (double)(y + yStep + 3.0F),
-                           ColorUtils.swapAlpha(modeColor, 255.0F * alphaPC)
-                        );
-                  }
-
-                  i += Fonts.comfortaaBold_14.getStringWidth(String.valueOf(c));
-               }
+        float getModesHeight() {
+            float yStep = 10.0f;
+            ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(2);
+            for (String mode : setting.modes) {
+                yStep += 10.0f;
             }
+            return yStep;
+        }
 
-            yStep += 10.0F;
-         }
-      }
+        public void drawColorModes(float x, float y, float w, float h, ScaledResolution sr, float alphaPC) {
+            ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(2);
+            String currentMode = ClientColors.get.Mode.currentMode;
+            RenderUtils.drawAlphedRect(x, y, x + w, y + h, ColorUtils.getColor(0, 0, 0, 60.0f * alphaPC));
+            RenderUtils.drawLightContureRect(x, y, x + w, y + h, ColorUtils.getColor(255, 255, 255, 60.0f * alphaPC));
+            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0f * alphaPC);
+            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0f * alphaPC);
+            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0f * alphaPC);
+            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0f * alphaPC);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 1.0f, 9.0f, czC1, czC2, czC3, czC4, true, false, true);
+            if (255.0f * alphaPC >= 28.0f && this.isInRenderZone(y, 10.0f)) {
+                Fonts.mntsb_15.drawString("Color mode", x + 3.0f, y + 3.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+            }
+            float yStep = 10.0f;
+            for (String mode : setting.modes) {
+                if (this.isInRenderZone(y + yStep, 10.0f)) {
+                    int color1 = mode.equalsIgnoreCase(currentMode) ? ClientColors.getColor1(0) : -1;
+                    int color2 = mode.equalsIgnoreCase(currentMode) ? ClientColors.getColor2(0) : -1;
+                    int colorSelect1 = ColorUtils.getColor(255, 255, 255, 20.0f * alphaPC);
+                    int colorSelect2 = ColorUtils.getColor(255, 255, 255, 20.0f * alphaPC);
+                    RenderUtils.drawFullGradientRectPro(x, y + yStep, x + w, y + yStep + 10.0f, colorSelect1, colorSelect2, colorSelect2, colorSelect1, false);
+                    if (mode.equalsIgnoreCase(currentMode)) {
+                        float changePC = modeStepAnimGetAnim;
+                        if ((double)changePC < 0.5) {
+                            changePC = (double)(changePC *= 2.0f) > 0.5 ? 1.0f - changePC : changePC;
+                            changePC *= 2.0f;
+                        } else {
+                            changePC = 0.0f;
+                        }
+                        colorSelect1 = ColorUtils.swapAlpha(color1, (45.0f + changePC * 50.0f) * alphaPC);
+                        colorSelect2 = ColorUtils.swapAlpha(color2, (45.0f + changePC * 50.0f) * alphaPC);
+                        float WMM = w / 2.0f - (float)Fonts.comfortaaBold_14.getStringWidth(mode) / 2.0f;
+                        RenderUtils.drawFullGradientRectPro(x, y + yStep, x + w, y + yStep + 10.0f, colorSelect1, colorSelect2, colorSelect2, colorSelect1, true);
+                        changePC = modeStepAnimGetAnim;
+                        changePC = (double)changePC > 0.5 ? 1.0f - changePC : changePC;
+                        RenderUtils.drawAlphedRect(x, y + yStep, x + 1.0f, y + yStep + 10.0f * modeStepAnimGetAnim, ColorUtils.swapAlpha(-1, 255.0f * (changePC *= 2.0f) * alphaPC));
+                        RenderUtils.drawAlphedRect(x + w - 1.0f, y + yStep + 10.0f * (1.0f - modeStepAnimGetAnim), x + w, y + yStep + 10.0f, ColorUtils.swapAlpha(-1, 255.0f * changePC * alphaPC));
+                        RenderUtils.drawAlphedSideways(x, y + yStep, x + w * modeStepAnimGetAnim, y + yStep + 10.0f, 0, ColorUtils.swapAlpha(-1, 255.0f * changePC * alphaPC), true);
+                        RenderUtils.drawAlphedSideways(x + w * modeStepAnimGetAnim, y + yStep, x + w, y + yStep + 10.0f, ColorUtils.swapAlpha(-1, 255.0f * changePC * alphaPC), 0, true);
+                    }
+                    int i = 0;
+                    for (char c : mode.toCharArray()) {
+                        int modeColor;
+                        int n = modeColor = mode.equalsIgnoreCase(currentMode) ? ColorUtils.getOverallColorFrom(ClientColors.getColor1(i), ClientColors.getColor2(i), i / Fonts.comfortaaBold_14.getStringWidth(mode)) : -1;
+                        if (255.0f * alphaPC >= 33.0f) {
+                            Fonts.comfortaaBold_14.drawStringWithShadow(String.valueOf(c), x + w / 2.0f - (float)(Fonts.comfortaaBold_14.getStringWidth(mode) / 2) + (float)i, y + yStep + 3.0f, ColorUtils.swapAlpha(modeColor, 255.0f * alphaPC));
+                        }
+                        i += Fonts.comfortaaBold_14.getStringWidth(String.valueOf(c));
+                    }
+                }
+                yStep += 10.0f;
+            }
+        }
 
-      public boolean isInRenderZone(float y1, float height) {
-         float y = this.yRepos.anim + 23.0F - height;
-         float y2 = this.yRepos.anim + this.heightAnimation.anim - 23.0F;
-         return y1 >= y && y1 - height <= y2;
-      }
+        public boolean isInRenderZone(float y1, float height) {
+            float y = this.yRepos.anim + 23.0f - height;
+            float y2 = this.yRepos.anim + this.heightAnimation.anim - 23.0f;
+            return y1 >= y && y1 - height <= y2;
+        }
 
-      public void drawPanel(int mouseX, int mouseY, float partialTicks, float x, float y, float w, float h, boolean opennd, ScaledResolution sr, float alphaPC) {
-         CFontRenderer font = Fonts.mntsb_18;
-         CFontRenderer icon = Fonts.iconswex_24;
-         String currentMode = ClientColors.get.Mode.currentMode;
-         float x2 = x + w;
-         float y2 = y + h;
-         int bgColor = ColorUtils.getColor(0, 0, 0, 200.0F * alphaPC);
-         int bgColor2 = ColorUtils.getColor(0, 0, 0, 140.0F * alphaPC);
-         int bgColorOutline = ColorUtils.getColor(255, 255, 255, 40.0F * alphaPC);
-         int shadowCol = ColorUtils.getColor(0, 0, 0, 70.0F * alphaPC);
-         int textColor = ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC);
-         int lineCol = ColorUtils.getColor(255, 255, 255, 255.0F * alphaPC);
-         int lineCol2 = ColorUtils.getColor(255, 255, 255, 130.0F * alphaPC);
-         int lineCol3 = ColorUtils.getColor(255, 255, 255, 50.0F * alphaPC);
-         alphaPC *= alphaPC;
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x2, y2, 3.0F, 6.0F, shadowCol, shadowCol, shadowCol, shadowCol, false, false, true
-         );
-         StencilUtil.initStencilToWrite();
-         RenderUtils.drawAlphedRect((double)x, (double)(y + 18.5F), (double)x2, (double)y2, -1);
-         StencilUtil.readStencilBuffer(0);
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x2, y2, 4.0F, 6.0F, bgColor, bgColor, bgColor, bgColor, false, true, false
-         );
-         StencilUtil.readStencilBuffer(1);
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x2, y2, 3.0F, 6.0F, bgColor2, bgColor2, bgColor2, bgColor2, false, true, false
-         );
-         RenderUtils.drawTwoAlphedSideways((double)(x + 0.5F), (double)(y + 19.0F), (double)(x2 - 0.5F), (double)(y + 20.0F), lineCol, lineCol3, false);
-         StencilUtil.uninitStencilBuffer();
-         StencilUtil.initStencilToWrite();
-         RenderUtils.drawRect((double)x, (double)(y2 - 2.0F), (double)x2, (double)y2, -1);
-         StencilUtil.readStencilBuffer(1);
-         RenderUtils.drawTwoAlphedSideways((double)(x + 1.0F), (double)(y2 - 2.0F), (double)(x2 - 1.0F), (double)(y2 - 1.5F), lineCol, lineCol3, false);
-         RenderUtils.drawTwoAlphedSideways((double)(x + 1.5F), (double)(y2 - 1.5F), (double)(x2 - 1.5F), (double)(y2 - 1.0F), lineCol, lineCol3, false);
-         RenderUtils.drawTwoAlphedSideways((double)(x + 2.0F), (double)(y2 - 1.0F), (double)(x2 - 2.0F), (double)(y2 - 0.5F), lineCol2, lineCol3, false);
-         StencilUtil.uninitStencilBuffer();
-         RenderUtils.drawOutsideAndInsideFullRoundedFullGradientShadowRectWithBloomBoolShadowsBoolChangeShadowSize(
-            x, y, x2, y2, 0.0F, 4.0F, 0.0F, lineCol2, lineCol2, lineCol3, lineCol3, false, true, false
-         );
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x2, y2, 4.0F, 1.5F, lineCol2, lineCol2, lineCol3, lineCol3, false, false, true
-         );
-         StencilUtil.initStencilToWrite();
-         RenderUtils.drawRect((double)x, (double)y, (double)x2, (double)y2, -1);
-         StencilUtil.readStencilBuffer(1);
-         if (255.0F * alphaPC >= 28.0F) {
-            font.drawString(this.className, (double)(x + 23.0F), (double)(y + 7.0F), textColor);
-            icon.drawString("G", (double)(x + 6.0F), (double)(y + 8.0F), textColor);
-         }
-
-         StencilUtil.uninitStencilBuffer();
-         if (this.getHeight() >= 23.0F) {
+        public void drawPanel(int mouseX, int mouseY, float partialTicks, float x, float y, float w, float h, boolean opennd, ScaledResolution sr, float alphaPC) {
+            CFontRenderer font = Fonts.mntsb_18;
+            CFontRenderer icon = Fonts.iconswex_24;
+            String currentMode = ClientColors.get.Mode.currentMode;
+            float x2 = x + w;
+            float y2 = y + h;
+            int bgColor = ColorUtils.getColor(0, 0, 0, 200.0f * alphaPC);
+            int bgColor2 = ColorUtils.getColor(0, 0, 0, 140.0f * alphaPC);
+            int bgColorOutline = ColorUtils.getColor(255, 255, 255, 40.0f * alphaPC);
+            int shadowCol = ColorUtils.getColor(0, 0, 0, 70.0f * alphaPC);
+            int textColor = ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC);
+            int lineCol = ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC);
+            int lineCol2 = ColorUtils.getColor(255, 255, 255, 130.0f * alphaPC);
+            int lineCol3 = ColorUtils.getColor(255, 255, 255, 50.0f * alphaPC);
+            alphaPC *= alphaPC;
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x2, y2, 3.0f, 6.0f, shadowCol, shadowCol, shadowCol, shadowCol, false, false, true);
             StencilUtil.initStencilToWrite();
-            RenderUtils.drawRect((double)x, (double)(y + 20.0F), (double)x2, (double)(y2 - 2.0F), -1);
+            RenderUtils.drawAlphedRect(x, y + 18.5f, x2, y2, -1);
+            StencilUtil.readStencilBuffer(0);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x2, y2, 4.0f, 6.0f, bgColor, bgColor, bgColor, bgColor, false, true, false);
             StencilUtil.readStencilBuffer(1);
-            y -= this.getScrollY();
-            float modesX = x + 5.0F;
-            float modesY = y + 25.0F;
-            float modesW = w - 10.0F;
-            float modesH = this.getModesHeight();
-            if (this.isInRenderZone(modesY + 6.5F, modesH)) {
-               this.drawColorModes(modesX, modesY, modesW, modesH, sr, alphaPC);
-            }
-
-            if (this.hasSettings() && this.isInRenderZone(modesY + modesH + 6.5F, 0.5F)) {
-               RenderUtils.drawTwoAlphedSideways(
-                  (double)(x + 7.0F), (double)(modesY + modesH + 5.0F), (double)(x + w - 7.0F), (double)(modesY + modesH + 5.5F), lineCol2, lineCol3, false
-               );
-            }
-
-            float presetsX = x + 5.0F;
-            float presetsY = modesY + modesH + 11.0F;
-            float presetsW = w - 10.0F;
-            float presetsH = this.getPresetsHeight();
-            float pickerX = x + 5.0F;
-            float pickerY = modesY + modesH + 11.0F;
-            float pickerW = w - 10.0F;
-            float pickerH = this.getPickerHeight();
-            float pickerY2 = pickerY + pickerH + 11.0F;
-            if (currentMode.equalsIgnoreCase("Presets") && this.isInRenderZone(presetsY, presetsH)) {
-               this.drawColorPresets(presetsX, presetsY, presetsW, presetsH, sr, alphaPC);
-            }
-
-            if ((currentMode.equalsIgnoreCase("Colored") || currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade"))
-               && this.isInRenderZone(pickerY, pickerH)) {
-               this.drawColorPicker(pickerX, pickerY, pickerW, pickerH, sr, mouseX, mouseY, alphaPC);
-            }
-
-            if (currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade")) {
-               if (this.isInRenderZone(pickerY - 19.0F + pickerH, 1.0F)) {
-                  RenderUtils.drawTwoAlphedSideways(
-                     (double)(x + 7.0F),
-                     (double)(pickerY + pickerH + 5.0F),
-                     (double)(x + w - 7.0F),
-                     (double)(pickerY + pickerH + 5.5F),
-                     lineCol2,
-                     lineCol3,
-                     false
-                  );
-               }
-
-               if (this.isInRenderZone(pickerY - 19.0F + pickerH + 9.0F, 1.0F)) {
-                  this.drawColorPicker2(pickerX, pickerY + 11.0F + pickerH, pickerW, pickerH, sr, mouseX, mouseY, alphaPC);
-               }
-            }
-
-            float flatY = y + this.getTotalElementsHeight() + 29.0F;
-            if (this.isInRenderZone(flatY - 20.0F, 5.0F)) {
-               float flatStepX = 1.0F;
-               float flatsCount = 90.0F;
-               int flatsTimeOn = 600;
-               int flatsTimeStep = 15;
-               float flatX = x + this.getWidth() / 2.0F - flatStepX * (flatsCount - 1.0F) / 2.0F;
-               if (alphaPC * 255.0F >= 32.0F) {
-                  for (int c = 0; (float)c < flatsCount; c++) {
-                     float timePC = (float)((System.currentTimeMillis() + (long)(flatsTimeStep * c)) % (long)flatsTimeOn) / (float)flatsTimeOn;
-                     timePC = (double)timePC > 0.5 ? 1.0F - timePC : timePC;
-                     timePC *= 2.0F;
-                     float wavePC = (float)MathUtils.easeInOutQuadWave((double)timePC);
-                     RenderUtils.drawSmoothCircle(
-                        (double)flatX, (double)(flatY + (wavePC - 0.25F) * 2.0F), 1.25F * alphaPC, ClientColors.getColor1(c * 9, alphaPC * alphaPC)
-                     );
-                     flatX += flatStepX;
-                  }
-               }
-            }
-
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x2, y2, 3.0f, 6.0f, bgColor2, bgColor2, bgColor2, bgColor2, false, true, false);
+            RenderUtils.drawTwoAlphedSideways(x + 0.5f, y + 19.0f, x2 - 0.5f, y + 20.0f, lineCol, lineCol3, false);
             StencilUtil.uninitStencilBuffer();
-         }
-      }
+            StencilUtil.initStencilToWrite();
+            RenderUtils.drawRect(x, y2 - 2.0f, x2, y2, -1);
+            StencilUtil.readStencilBuffer(1);
+            RenderUtils.drawTwoAlphedSideways(x + 1.0f, y2 - 2.0f, x2 - 1.0f, y2 - 1.5f, lineCol, lineCol3, false);
+            RenderUtils.drawTwoAlphedSideways(x + 1.5f, y2 - 1.5f, x2 - 1.5f, y2 - 1.0f, lineCol, lineCol3, false);
+            RenderUtils.drawTwoAlphedSideways(x + 2.0f, y2 - 1.0f, x2 - 2.0f, y2 - 0.5f, lineCol2, lineCol3, false);
+            StencilUtil.uninitStencilBuffer();
+            RenderUtils.drawOutsideAndInsideFullRoundedFullGradientShadowRectWithBloomBoolShadowsBoolChangeShadowSize(x, y, x2, y2, 0.0f, 4.0f, 0.0f, lineCol2, lineCol2, lineCol3, lineCol3, false, true, false);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x2, y2, 4.0f, 1.5f, lineCol2, lineCol2, lineCol3, lineCol3, false, false, true);
+            StencilUtil.initStencilToWrite();
+            RenderUtils.drawRect(x, y, x2, y2, -1);
+            StencilUtil.readStencilBuffer(1);
+            if (255.0f * alphaPC >= 28.0f) {
+                font.drawString(this.className, x + 23.0f, y + 7.0f, textColor);
+                icon.drawString("G", x + 6.0f, y + 8.0f, textColor);
+            }
+            StencilUtil.uninitStencilBuffer();
+            if (this.getHeight() >= 23.0f) {
+                float flatY;
+                StencilUtil.initStencilToWrite();
+                RenderUtils.drawRect(x, y + 20.0f, x2, y2 - 2.0f, -1);
+                StencilUtil.readStencilBuffer(1);
+                float modesX = x + 5.0f;
+                float modesY = (y -= this.getScrollY()) + 25.0f;
+                float modesW = w - 10.0f;
+                float modesH = this.getModesHeight();
+                if (this.isInRenderZone(modesY + 6.5f, modesH)) {
+                    this.drawColorModes(modesX, modesY, modesW, modesH, sr, alphaPC);
+                }
+                if (this.hasSettings() && this.isInRenderZone(modesY + modesH + 6.5f, 0.5f)) {
+                    RenderUtils.drawTwoAlphedSideways(x + 7.0f, modesY + modesH + 5.0f, x + w - 7.0f, modesY + modesH + 5.5f, lineCol2, lineCol3, false);
+                }
+                float presetsX = x + 5.0f;
+                float presetsY = modesY + modesH + 11.0f;
+                float presetsW = w - 10.0f;
+                float presetsH = this.getPresetsHeight();
+                float pickerX = x + 5.0f;
+                float pickerY = modesY + modesH + 11.0f;
+                float pickerW = w - 10.0f;
+                float pickerH = this.getPickerHeight();
+                float pickerX2 = pickerX;
+                float pickerY2 = pickerY + pickerH + 11.0f;
+                if (currentMode.equalsIgnoreCase("Presets") && this.isInRenderZone(presetsY, presetsH)) {
+                    this.drawColorPresets(presetsX, presetsY, presetsW, presetsH, sr, alphaPC);
+                }
+                if ((currentMode.equalsIgnoreCase("Colored") || currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade")) && this.isInRenderZone(pickerY, pickerH)) {
+                    this.drawColorPicker(pickerX, pickerY, pickerW, pickerH, sr, mouseX, mouseY, alphaPC);
+                }
+                if (currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade")) {
+                    if (this.isInRenderZone(pickerY - 19.0f + pickerH, 1.0f)) {
+                        RenderUtils.drawTwoAlphedSideways(x + 7.0f, pickerY + pickerH + 5.0f, x + w - 7.0f, pickerY + pickerH + 5.5f, lineCol2, lineCol3, false);
+                    }
+                    if (this.isInRenderZone(pickerY - 19.0f + pickerH + 9.0f, 1.0f)) {
+                        this.drawColorPicker2(pickerX, pickerY + 11.0f + pickerH, pickerW, pickerH, sr, mouseX, mouseY, alphaPC);
+                    }
+                }
+                if (this.isInRenderZone((flatY = y + this.getTotalElementsHeight() + 29.0f) - 20.0f, 5.0f)) {
+                    float flatStepX = 1.0f;
+                    float flatsCount = 90.0f;
+                    int flatsTimeOn = 600;
+                    int flatsTimeStep = 15;
+                    float flatX = x + this.getWidth() / 2.0f - flatStepX * (flatsCount - 1.0f) / 2.0f;
+                    if (alphaPC * 255.0f >= 32.0f) {
+                        int c = 0;
+                        while ((float)c < flatsCount) {
+                            float timePC = (float)((System.currentTimeMillis() + (long)(flatsTimeStep * c)) % (long)flatsTimeOn) / (float)flatsTimeOn;
+                            timePC = (double)timePC > 0.5 ? 1.0f - timePC : timePC;
+                            float wavePC = (float)MathUtils.easeInOutQuadWave(timePC *= 2.0f);
+                            RenderUtils.drawSmoothCircle(flatX, flatY + (wavePC - 0.25f) * 2.0f, 1.25f * alphaPC, ClientColors.getColor1(c * 9, alphaPC * alphaPC));
+                            flatX += flatStepX;
+                            ++c;
+                        }
+                    }
+                }
+                StencilUtil.uninitStencilBuffer();
+            }
+        }
 
-      private double getMouseSpeed() {
-         float dX = (float)Mouse.getDX();
-         float dY = (float)Mouse.getDX();
-         return Math.sqrt((double)(dX * dX + dY * dY));
-      }
+        private double getMouseSpeed() {
+            float dX = Mouse.getDX();
+            float dY = Mouse.getDX();
+            return Math.sqrt(dX * dX + dY * dY);
+        }
 
-      private long getTimerateSoundMove(double mouseSpeed) {
-         if (mouseSpeed == 0.0) {
-            return Long.MAX_VALUE;
-         } else {
+        private long getTimerateSoundMove(double mouseSpeed) {
+            if (mouseSpeed == 0.0) {
+                return Long.MAX_VALUE;
+            }
             long time = 1000L;
-            return (long)((double)time / MathUtils.clamp(mouseSpeed * 10.0, 1.0, 100.0));
-         }
-      }
+            time = (long)((double)time / MathUtils.clamp(mouseSpeed * 10.0, 1.0, 100.0));
+            return time;
+        }
 
-      private void updateSliderSounds() {
-         if (this.soundTicker.hasReached((float)this.getTimerateSoundMove(this.getMouseSpeed()))) {
-            ClientTune.get.playGuiSliderMoveSong();
-            this.soundTicker.reset();
-         }
-      }
+        private void updateSliderSounds() {
+            if (this.soundTicker.hasReached(this.getTimerateSoundMove(this.getMouseSpeed()))) {
+                ClientTune.get.playGuiSliderMoveSong();
+                this.soundTicker.reset();
+            }
+        }
 
-      public void drawColorPicker(float x, float y, float w, float h, ScaledResolution sr, int mouseX, int mouseY, float alphaPC) {
-         if (!(255.0F * alphaPC <= 26.0F)) {
+        public void drawColorPicker(float x, float y, float w, float h, ScaledResolution sr, int mouseX, int mouseY, float alphaPC) {
+            if (255.0f * alphaPC <= 26.0f) {
+                return;
+            }
             ColorSettings setting = (ColorSettings)ClientColors.get.settings.get(4);
             boolean doublePicker = false;
-            RenderUtils.drawAlphedRect((double)x, (double)(y + 15.0F), (double)(x + w), (double)(y + h), ColorUtils.getColor(0, 0, 0, 60.0F * alphaPC));
-            RenderUtils.drawLightContureRect((double)x, (double)y, (double)(x + w), (double)(y + h), ColorUtils.getColor(255, 255, 255, 60.0F * alphaPC));
-            RenderUtils.drawAlphedRect((double)x, (double)y, (double)(x + w), (double)(y + 15.0F), ColorUtils.getColor(0, 0, 0, 90.0F * alphaPC));
-            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0F * alphaPC);
-            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0F * alphaPC);
-            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0F * alphaPC);
-            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0F * alphaPC);
-            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-               x, y, x + w, y + h, 1.0F, 9.0F, czC1, czC2, czC3, czC4, true, false, true
-            );
-            if (255.0F * alphaPC >= 28.0F && this.isInRenderZone(y, 15.0F)) {
-               Fonts.mntsb_15
-                  .drawString("Pick color", (double)(x + 14.0F), (double)(y + 6.0F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
-               Fonts.stylesicons_20
-                  .drawString("M", (double)(x + 3.0F), (double)(y + 6.5F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
+            RenderUtils.drawAlphedRect(x, y + 15.0f, x + w, y + h, ColorUtils.getColor(0, 0, 0, 60.0f * alphaPC));
+            RenderUtils.drawLightContureRect(x, y, x + w, y + h, ColorUtils.getColor(255, 255, 255, 60.0f * alphaPC));
+            RenderUtils.drawAlphedRect(x, y, x + w, y + 15.0f, ColorUtils.getColor(0, 0, 0, 90.0f * alphaPC));
+            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0f * alphaPC);
+            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0f * alphaPC);
+            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0f * alphaPC);
+            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0f * alphaPC);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 1.0f, 9.0f, czC1, czC2, czC3, czC4, true, false, true);
+            if (255.0f * alphaPC >= 28.0f && this.isInRenderZone(y, 15.0f)) {
+                Fonts.mntsb_15.drawString("Pick color", x + 14.0f, y + 6.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+                Fonts.stylesicons_20.drawString("M", x + 3.0f, y + 6.5f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
             int finalColor = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) * alphaPC);
-            int finalColor2 = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) / 2.5F * alphaPC);
-            if (this.isInRenderZone(y, 15.0F)) {
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  x + w - 18.0F, y + 6.0F, x + w - 18.0F + 11.0F, y + 11.0F, 2.0F, 0.5F, finalColor, finalColor, finalColor, finalColor, false, true, true
-               );
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  x + w - 18.0F, y + 6.0F, x + w - 18.0F + 11.0F, y + 11.0F, 2.0F, 6.0F, finalColor2, finalColor2, finalColor2, finalColor2, true, false, true
-               );
+            int finalColor2 = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) / 2.5f * alphaPC);
+            if (this.isInRenderZone(y, 15.0f)) {
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + w - 18.0f, y + 6.0f, x + w - 18.0f + 11.0f, y + 11.0f, 2.0f, 0.5f, finalColor, finalColor, finalColor, finalColor, false, true, true);
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + w - 18.0f, y + 6.0f, x + w - 18.0f + 11.0f, y + 11.0f, 2.0f, 6.0f, finalColor2, finalColor2, finalColor2, finalColor2, true, false, true);
             }
-
             int colHSB = -1;
-            float hsbX = x + 6.0F;
-            float hsbY = y + 68.0F;
-            float hsbW = w - 12.0F;
-            float hsbH = 6.0F;
-            float alphaX = x + 6.0F;
-            float alphaY = y + 86.0F;
-            float alphaW = w - 12.0F;
-            float alphaH = 6.0F;
-            float grX = x + 5.0F;
-            float grY = y + 20.0F;
-            float grH = 35.0F;
-            float grW = w - 10.0F;
+            float hsbX = x + 6.0f;
+            float hsbY = y + 68.0f;
+            float hsbW = w - 12.0f;
+            float hsbH = 6.0f;
+            float alphaX = x + 6.0f;
+            float alphaY = y + 86.0f;
+            float alphaW = w - 12.0f;
+            float alphaH = 6.0f;
+            float grX = x + 5.0f;
+            float grY = y + 20.0f;
+            float grH = 35.0f;
+            float grW = w - 10.0f;
             float draggXgr = grX + this.offsetX;
             float draggYgr = grY + this.offsetY;
             float percXgr = this.offsetX / grW;
             float percYgr = this.offsetY / grH;
             if (this.dragginggr) {
-               this.dragginghsb = false;
-               this.draggingalpha = false;
-               this.updateSliderSounds();
-               this.offsetX = MathUtils.clamp((float)mouseX - grX, 0.0F, grW);
-               this.offsetY = MathUtils.clamp((float)mouseY - grY, 0.0F, grH);
-            } else if (ColorUtils.getSaturateFromColor(setting.color) != 0.0F) {
-               this.offsetX = ColorUtils.getSaturateFromColor(setting.color) * grW;
-               this.offsetY = grH - ColorUtils.getBrightnessFromColor(setting.color) * grH;
+                this.dragginghsb = false;
+                this.draggingalpha = false;
+                this.updateSliderSounds();
+                this.offsetX = MathUtils.clamp((float)mouseX - grX, 0.0f, grW);
+                this.offsetY = MathUtils.clamp((float)mouseY - grY, 0.0f, grH);
+            } else if (ColorUtils.getSaturateFromColor(setting.color) != 0.0f) {
+                this.offsetX = ColorUtils.getSaturateFromColor(setting.color) * grW;
+                this.offsetY = grH - ColorUtils.getBrightnessFromColor(setting.color) * grH;
             }
-
             if (this.isInRenderZone(grY, grH)) {
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  grX,
-                  grY,
-                  grX + grW,
-                  grY + grH,
-                  2.0F,
-                  1.0F,
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(Color.getHSBColor(this.offsetX2 / hsbW, 1.0F, 1.0F).getRGB(), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC),
-                  false,
-                  true,
-                  true
-               );
-               RenderUtils.resetBlender();
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(grX, grY, grX + grW, grY + grH, 2.0f, 1.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC), ColorUtils.swapAlpha(Color.getHSBColor(this.offsetX2 / hsbW, 1.0f, 1.0f).getRGB(), 255.0f * alphaPC), ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC), ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC), false, true, true);
+                RenderUtils.resetBlender();
             }
-
-            RenderUtils.drawLightContureRect(
-               (double)hsbX,
-               (double)hsbY,
-               (double)(hsbX + hsbW),
-               (double)(hsbY + hsbH),
-               ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-            );
+            RenderUtils.drawLightContureRect(hsbX, hsbY, hsbX + hsbW, hsbY + hsbH, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             float draggXhsb = hsbX + this.offsetX2;
-            float HSBCC = this.offsetX2 / hsbW * 360.0F % 360.0F;
-            if (HSBCC < 0.0F) {
-               HSBCC = 360.0F - HSBCC;
+            float HSBCC = this.offsetX2 / hsbW * 360.0f % 360.0f;
+            if (HSBCC < 0.0f) {
+                HSBCC = 360.0f - HSBCC;
             }
-
-            float percXhsb = HSBCC / 360.0F;
+            float percXhsb = HSBCC / 360.0f;
             float percXalpha = this.offsetX3 / alphaW;
-            Fonts.comfortaaBold_12
-               .drawStringWithShadow(
-                  "Hsb - " + String.format("%.2f", HSBCC),
-                  (double)(hsbX + 1.0F),
-                  (double)(hsbY - 7.0F),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
-
-            for (int i = 0; i < 359; i++) {
-               float hsb = (float)i / 360.0F;
-               hsb = hsb < 0.0F ? 0.0F : (hsb > 1.0F ? 1.0F : hsb);
-               colHSB = Color.getHSBColor(hsb, 1.0F, 1.0F).getRGB();
-               float pc = (float)i / 360.0F * (hsbW - 0.5F);
-               RenderUtils.drawAlphedRect(
-                  (double)(hsbX + pc), (double)hsbY, (double)(hsbX + pc + 0.5F), (double)(hsbY + hsbH), ColorUtils.swapAlpha(colHSB, 255.0F * alphaPC)
-               );
+            Fonts.comfortaaBold_12.drawStringWithShadow("Hsb - " + String.format("%.2f", Float.valueOf(HSBCC)), hsbX + 1.0f, hsbY - 7.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+            for (int i = 0; i < 359; ++i) {
+                float hsb = (float)i / 360.0f;
+                hsb = hsb < 0.0f ? 0.0f : (hsb > 1.0f ? 1.0f : hsb);
+                colHSB = Color.getHSBColor(hsb, 1.0f, 1.0f).getRGB();
+                float pc = (float)i / 360.0f * (hsbW - 0.5f);
+                RenderUtils.drawAlphedRect(hsbX + pc, hsbY, hsbX + pc + 0.5f, hsbY + hsbH, ColorUtils.swapAlpha(colHSB, 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(alphaY - 16.0F, alphaH)) {
-               RenderUtils.drawLightContureRect(
-                  (double)alphaX,
-                  (double)alphaY,
-                  (double)(alphaX + alphaW),
-                  (double)(alphaY + alphaH),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(alphaY - 16.0f, alphaH)) {
+                RenderUtils.drawLightContureRect(alphaX, alphaY, alphaX + alphaW, alphaY + alphaH, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (255.0F * alphaPC >= 28.0F && this.isInRenderZone(alphaY - alphaH - 16.0F, alphaH)) {
-               Fonts.comfortaaBold_12
-                  .drawStringWithShadow(
-                     "Alpha - " + (int)(percXalpha * 255.0F),
-                     (double)(alphaX + 1.0F),
-                     (double)(alphaY - 7.0F),
-                     ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-                  );
+            if (255.0f * alphaPC >= 28.0f && this.isInRenderZone(alphaY - alphaH - 16.0f, alphaH)) {
+                Fonts.comfortaaBold_12.drawStringWithShadow("Alpha - " + (int)(percXalpha * 255.0f), alphaX + 1.0f, alphaY - 7.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(alphaY - 16.0F, alphaH)) {
-               alphaW *= 2.0F;
-               alphaH *= 2.0F;
-
-               for (int i2 = 0; (float)i2 < alphaH; i2 += 4) {
-                  for (int i = 0; (float)i < alphaW; i += 4) {
-                     int colTest = (i % 8 != 0 || i2 == 4) && (i2 != 4 || i % 8 == 0)
-                        ? ColorUtils.getColor(200, 200, 200, 125)
-                        : ColorUtils.getColor(125, 125, 125, 125);
-                     int colAlpha = ColorUtils.getOverallColorFrom(colTest, ColorUtils.swapAlpha(setting.color, 255.0F), (float)i / alphaW);
-                     RenderUtils.drawAlphedRect(
-                        (double)(alphaX + (float)(i / 2)),
-                        (double)(alphaY + (float)(i2 / 2)),
-                        (double)(alphaX + (float)(i / 2) + 2.0F),
-                        (double)(alphaY + (float)(i2 / 2) + 2.0F),
-                        ColorUtils.swapAlpha(colAlpha, 255.0F * alphaPC)
-                     );
-                  }
-               }
-
-               alphaW /= 2.0F;
-               alphaH /= 2.0F;
+            if (this.isInRenderZone(alphaY - 16.0f, alphaH)) {
+                alphaW *= 2.0f;
+                alphaH *= 2.0f;
+                int i2 = 0;
+                while ((float)i2 < alphaH) {
+                    int i = 0;
+                    while ((float)i < alphaW) {
+                        int colTest = i % 8 == 0 && i2 != 4 || i2 == 4 && i % 8 != 0 ? ColorUtils.getColor(125, 125, 125, 125) : ColorUtils.getColor(200, 200, 200, 125);
+                        int colAlpha = ColorUtils.getOverallColorFrom(colTest, ColorUtils.swapAlpha(setting.color, 255.0f), (float)i / alphaW);
+                        RenderUtils.drawAlphedRect(alphaX + (float)(i / 2), alphaY + (float)(i2 / 2), alphaX + (float)(i / 2) + 2.0f, alphaY + (float)(i2 / 2) + 2.0f, ColorUtils.swapAlpha(colAlpha, 255.0f * alphaPC));
+                        i += 4;
+                    }
+                    i2 += 4;
+                }
+                alphaW /= 2.0f;
+                alphaH /= 2.0f;
             }
-
-            if (this.isInRenderZone(alphaY - 16.0F, alphaH)) {
-               float alphaXCursor = alphaX + this.offsetX3;
-               float alphaYCursor = alphaY + alphaH / 2.0F;
-               RenderUtils.drawAlphedRect(
-                  (double)(alphaXCursor - 1.5F),
-                  (double)(alphaYCursor - 2.5F),
-                  (double)(alphaXCursor + 1.5F),
-                  (double)(alphaYCursor + 2.5F),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-               );
-               RenderUtils.drawAlphedRect(
-                  (double)(alphaXCursor - 1.0F),
-                  (double)(alphaYCursor - 2.0F),
-                  (double)(alphaXCursor + 1.0F),
-                  (double)(alphaYCursor + 2.0F),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(alphaY - 16.0f, alphaH)) {
+                float alphaXCursor = alphaX + this.offsetX3;
+                float alphaYCursor = alphaY + alphaH / 2.0f;
+                RenderUtils.drawAlphedRect(alphaXCursor - 1.5f, alphaYCursor - 2.5f, alphaXCursor + 1.5f, alphaYCursor + 2.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+                RenderUtils.drawAlphedRect(alphaXCursor - 1.0f, alphaYCursor - 2.0f, alphaXCursor + 1.0f, alphaYCursor + 2.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            RenderUtils.drawAlphedRect(
-               (double)(draggXgr - 1.5F),
-               (double)(draggYgr - 1.5F),
-               (double)(draggXgr + 1.5F),
-               (double)(draggYgr + 1.5F),
-               ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-            );
-            RenderUtils.drawAlphedRect(
-               (double)(draggXgr - 1.0F),
-               (double)(draggYgr - 1.0F),
-               (double)(draggXgr + 1.0F),
-               (double)(draggYgr + 1.0F),
-               ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-            );
+            RenderUtils.drawAlphedRect(draggXgr - 1.5f, draggYgr - 1.5f, draggXgr + 1.5f, draggYgr + 1.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+            RenderUtils.drawAlphedRect(draggXgr - 1.0f, draggYgr - 1.0f, draggXgr + 1.0f, draggYgr + 1.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             float hsbXCursor = hsbX + this.offsetX2;
-            float hsbYCursor = hsbY + hsbH / 2.0F;
-            RenderUtils.drawAlphedRect(
-               (double)(hsbXCursor - 1.5F),
-               (double)(hsbYCursor - 2.5F),
-               (double)(hsbXCursor + 1.5F),
-               (double)(hsbYCursor + 2.5F),
-               ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-            );
-            RenderUtils.drawAlphedRect(
-               (double)(hsbXCursor - 1.0F),
-               (double)(hsbYCursor - 2.0F),
-               (double)(hsbXCursor + 1.0F),
-               (double)(hsbYCursor + 2.0F),
-               ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-            );
+            float hsbYCursor = hsbY + hsbH / 2.0f;
+            RenderUtils.drawAlphedRect(hsbXCursor - 1.5f, hsbYCursor - 2.5f, hsbXCursor + 1.5f, hsbYCursor + 2.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+            RenderUtils.drawAlphedRect(hsbXCursor - 1.0f, hsbYCursor - 2.0f, hsbXCursor + 1.0f, hsbYCursor + 2.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             if (this.dragginghsb) {
-               this.dragginggr = false;
-               this.draggingalpha = false;
-               this.offsetX2 = MathUtils.clamp((float)mouseX - hsbX, 0.0F, hsbW);
-               this.updateSliderSounds();
+                this.dragginggr = false;
+                this.draggingalpha = false;
+                this.offsetX2 = MathUtils.clamp((float)mouseX - hsbX, 0.0f, hsbW);
+                this.updateSliderSounds();
             } else if (ColorUtils.getHueFromColor(setting.color) != 0 && !this.dragginggr) {
-               this.offsetX2 = (float)ColorUtils.getHueFromColor(setting.color) / 360.0F * hsbW;
-            } else if (this.offsetX2 == -1.2312312E8F) {
-               this.offsetX2 = 0.0F;
+                this.offsetX2 = (float)ColorUtils.getHueFromColor(setting.color) / 360.0f * hsbW;
+            } else if (this.offsetX2 == -1.2312312E8f) {
+                this.offsetX2 = 0.0f;
             }
-
             if (this.draggingalpha) {
-               this.dragginggr = false;
-               this.dragginghsb = false;
-               this.offsetX3 = MathUtils.clamp((float)mouseX - alphaX, 0.0F, alphaW);
-               this.updateSliderSounds();
+                this.dragginggr = false;
+                this.dragginghsb = false;
+                this.offsetX3 = MathUtils.clamp((float)mouseX - alphaX, 0.0f, alphaW);
+                this.updateSliderSounds();
             } else {
-               this.offsetX3 = (float)ColorUtils.getAlphaFromColor(setting.color) / 255.0F * alphaW;
+                this.offsetX3 = (float)ColorUtils.getAlphaFromColor(setting.color) / 255.0f * alphaW;
             }
-
-            int col = Color.getHSBColor(MathUtils.clamp(percXhsb, 0.0F, 0.999F), percXgr, 1.0F - percYgr).getRGB();
-            col = ColorUtils.swapAlpha(col, 255.0F * percXalpha);
-            if (col != 0 && Mouse.isButtonDown(0)) {
-               setting.color = col;
+            float hsb = percXhsb;
+            int col = Color.getHSBColor(MathUtils.clamp(percXhsb, 0.0f, 0.999f), percXgr, 1.0f - percYgr).getRGB();
+            col = ColorUtils.swapAlpha(col, 255.0f * percXalpha);
+            if (col != 0 && Mouse.isButtonDown((int)0)) {
+                setting.color = col;
             }
-         }
-      }
+        }
 
-      public void drawColorPicker2(float x, float y, float w, float h, ScaledResolution sr, int mouseX, int mouseY, float alphaPC) {
-         if (!(255.0F * alphaPC <= 26.0F)) {
+        public void drawColorPicker2(float x, float y, float w, float h, ScaledResolution sr, int mouseX, int mouseY, float alphaPC) {
+            if (255.0f * alphaPC <= 26.0f) {
+                return;
+            }
             ColorSettings setting = (ColorSettings)ClientColors.get.settings.get(5);
             boolean doublePicker = false;
-            RenderUtils.drawAlphedRect((double)x, (double)(y + 15.0F), (double)(x + w), (double)(y + h), ColorUtils.getColor(0, 0, 0, 60.0F * alphaPC));
-            RenderUtils.drawLightContureRect((double)x, (double)y, (double)(x + w), (double)(y + h), ColorUtils.getColor(255, 255, 255, 60.0F * alphaPC));
-            if (this.isInRenderZone(y - 8.0F, 15.0F)) {
-               RenderUtils.drawAlphedRect((double)x, (double)y, (double)(x + w), (double)(y + 15.0F), ColorUtils.getColor(0, 0, 0, 90.0F * alphaPC));
+            RenderUtils.drawAlphedRect(x, y + 15.0f, x + w, y + h, ColorUtils.getColor(0, 0, 0, 60.0f * alphaPC));
+            RenderUtils.drawLightContureRect(x, y, x + w, y + h, ColorUtils.getColor(255, 255, 255, 60.0f * alphaPC));
+            if (this.isInRenderZone(y - 8.0f, 15.0f)) {
+                RenderUtils.drawAlphedRect(x, y, x + w, y + 15.0f, ColorUtils.getColor(0, 0, 0, 90.0f * alphaPC));
             }
-
-            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0F * alphaPC);
-            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0F * alphaPC);
-            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0F * alphaPC);
-            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0F * alphaPC);
-            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-               x, y, x + w, y + h, 1.0F, 9.0F, czC1, czC2, czC3, czC4, true, false, true
-            );
-            if (this.isInRenderZone(y - 8.0F, 15.0F)) {
-               if (255.0F * alphaPC >= 28.0F) {
-                  Fonts.mntsb_15
-                     .drawString(
-                        "Pick color 2", (double)(x + 14.0F), (double)(y + 6.0F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-                     );
-                  Fonts.stylesicons_20
-                     .drawString("M", (double)(x + 3.0F), (double)(y + 6.5F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
-               }
-
-               int finalColor = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) * alphaPC);
-               int finalColor2 = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) / 2.5F * alphaPC);
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  x + w - 18.0F, y + 6.0F, x + w - 18.0F + 11.0F, y + 11.0F, 2.0F, 0.5F, finalColor, finalColor, finalColor, finalColor, false, true, true
-               );
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  x + w - 18.0F, y + 6.0F, x + w - 18.0F + 11.0F, y + 11.0F, 2.0F, 6.0F, finalColor2, finalColor2, finalColor2, finalColor2, true, false, true
-               );
+            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0f * alphaPC);
+            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0f * alphaPC);
+            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0f * alphaPC);
+            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0f * alphaPC);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 1.0f, 9.0f, czC1, czC2, czC3, czC4, true, false, true);
+            if (this.isInRenderZone(y - 8.0f, 15.0f)) {
+                if (255.0f * alphaPC >= 28.0f) {
+                    Fonts.mntsb_15.drawString("Pick color 2", x + 14.0f, y + 6.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+                    Fonts.stylesicons_20.drawString("M", x + 3.0f, y + 6.5f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+                }
+                int finalColor = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) * alphaPC);
+                int finalColor2 = ColorUtils.swapAlpha(setting.color, (float)ColorUtils.getAlphaFromColor(setting.color) / 2.5f * alphaPC);
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + w - 18.0f, y + 6.0f, x + w - 18.0f + 11.0f, y + 11.0f, 2.0f, 0.5f, finalColor, finalColor, finalColor, finalColor, false, true, true);
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + w - 18.0f, y + 6.0f, x + w - 18.0f + 11.0f, y + 11.0f, 2.0f, 6.0f, finalColor2, finalColor2, finalColor2, finalColor2, true, false, true);
             }
-
             int colHSB = -1;
-            float hsbX = x + 6.0F;
-            float hsbY = y + 68.0F;
-            float hsbW = w - 12.0F;
-            float hsbH = 6.0F;
-            float alphaX = x + 6.0F;
-            float alphaY = y + 86.0F;
-            float alphaW = w - 12.0F;
-            float alphaH = 6.0F;
-            float grX = x + 5.0F;
-            float grY = y + 20.0F;
-            float grH = 35.0F;
-            float grW = w - 10.0F;
+            float hsbX = x + 6.0f;
+            float hsbY = y + 68.0f;
+            float hsbW = w - 12.0f;
+            float hsbH = 6.0f;
+            float alphaX = x + 6.0f;
+            float alphaY = y + 86.0f;
+            float alphaW = w - 12.0f;
+            float alphaH = 6.0f;
+            float grX = x + 5.0f;
+            float grY = y + 20.0f;
+            float grH = 35.0f;
+            float grW = w - 10.0f;
             float draggXgr = grX + this.offsetXs;
             float draggYgr = grY + this.offsetYs;
             float percXgr = this.offsetXs / grW;
             float percYgr = this.offsetYs / grH;
             if (this.dragginggrs) {
-               this.dragginghsbs = false;
-               this.draggingalphas = false;
-               this.updateSliderSounds();
-               this.offsetXs = MathUtils.clamp((float)mouseX - grX, 0.0F, grW);
-               this.offsetYs = MathUtils.clamp((float)mouseY - grY, 0.0F, grH);
-            } else if (ColorUtils.getSaturateFromColor(setting.color) != 0.0F) {
-               this.offsetXs = ColorUtils.getSaturateFromColor(setting.color) * grW;
-               this.offsetYs = grH - ColorUtils.getBrightnessFromColor(setting.color) * grH;
+                this.dragginghsbs = false;
+                this.draggingalphas = false;
+                this.updateSliderSounds();
+                this.offsetXs = MathUtils.clamp((float)mouseX - grX, 0.0f, grW);
+                this.offsetYs = MathUtils.clamp((float)mouseY - grY, 0.0f, grH);
+            } else if (ColorUtils.getSaturateFromColor(setting.color) != 0.0f) {
+                this.offsetXs = ColorUtils.getSaturateFromColor(setting.color) * grW;
+                this.offsetYs = grH - ColorUtils.getBrightnessFromColor(setting.color) * grH;
             }
-
-            if (this.isInRenderZone(grY + 12.0F, grH)) {
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  grX,
-                  grY,
-                  grX + grW,
-                  grY + grH,
-                  2.0F,
-                  1.0F,
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(Color.getHSBColor(this.offsetX2s / hsbW, 1.0F, 1.0F).getRGB(), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC),
-                  false,
-                  true,
-                  true
-               );
+            if (this.isInRenderZone(grY + 12.0f, grH)) {
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(grX, grY, grX + grW, grY + grH, 2.0f, 1.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC), ColorUtils.swapAlpha(Color.getHSBColor(this.offsetX2s / hsbW, 1.0f, 1.0f).getRGB(), 255.0f * alphaPC), ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC), ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC), false, true, true);
             }
-
             RenderUtils.resetBlender();
-            if (this.isInRenderZone(hsbY - 10.0F, hsbH)) {
-               RenderUtils.drawLightContureRect(
-                  (double)hsbX,
-                  (double)hsbY,
-                  (double)(hsbX + hsbW),
-                  (double)(hsbY + hsbH),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(hsbY - 10.0f, hsbH)) {
+                RenderUtils.drawLightContureRect(hsbX, hsbY, hsbX + hsbW, hsbY + hsbH, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
             float draggXhsb = hsbX + this.offsetX2s;
-            float HSBCC = this.offsetX2s / hsbW * 360.0F % 360.0F;
-            if (HSBCC < 0.0F) {
-               HSBCC = 360.0F - HSBCC;
+            float HSBCC = this.offsetX2s / hsbW * 360.0f % 360.0f;
+            if (HSBCC < 0.0f) {
+                HSBCC = 360.0f - HSBCC;
             }
-
-            float percXhsb = HSBCC / 360.0F;
+            float percXhsb = HSBCC / 360.0f;
             float percXalpha = this.offsetX3s / alphaW;
-            if (255.0F * alphaPC >= 28.0F && this.isInRenderZone(hsbY - hsbH - 16.0F, 8.0F)) {
-               Fonts.comfortaaBold_12
-                  .drawStringWithShadow(
-                     "Hsb - " + String.format("%.2f", HSBCC),
-                     (double)(hsbX + 1.0F),
-                     (double)(hsbY - 7.0F),
-                     ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-                  );
+            if (255.0f * alphaPC >= 28.0f && this.isInRenderZone(hsbY - hsbH - 16.0f, 8.0f)) {
+                Fonts.comfortaaBold_12.drawStringWithShadow("Hsb - " + String.format("%.2f", Float.valueOf(HSBCC)), hsbX + 1.0f, hsbY - 7.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(hsbY - 10.0F, hsbH)) {
-               for (int i = 0; i < 359; i++) {
-                  float hsb = (float)i / 360.0F;
-                  hsb = hsb < 0.0F ? 0.0F : (hsb > 1.0F ? 1.0F : hsb);
-                  colHSB = Color.getHSBColor(hsb, 1.0F, 1.0F).getRGB();
-                  float pc = (float)i / 360.0F * (hsbW - 0.5F);
-                  RenderUtils.drawAlphedRect(
-                     (double)(hsbX + pc), (double)hsbY, (double)(hsbX + pc + 0.5F), (double)(hsbY + hsbH), ColorUtils.swapAlpha(colHSB, 255.0F * alphaPC)
-                  );
-               }
+            if (this.isInRenderZone(hsbY - 10.0f, hsbH)) {
+                for (int i = 0; i < 359; ++i) {
+                    float hsb = (float)i / 360.0f;
+                    hsb = hsb < 0.0f ? 0.0f : (hsb > 1.0f ? 1.0f : hsb);
+                    colHSB = Color.getHSBColor(hsb, 1.0f, 1.0f).getRGB();
+                    float pc = (float)i / 360.0f * (hsbW - 0.5f);
+                    RenderUtils.drawAlphedRect(hsbX + pc, hsbY, hsbX + pc + 0.5f, hsbY + hsbH, ColorUtils.swapAlpha(colHSB, 255.0f * alphaPC));
+                }
             }
-
             GlStateManager.enableBlend();
-            if (this.isInRenderZone(alphaY - 10.0F, alphaH)) {
-               RenderUtils.drawLightContureRect(
-                  (double)alphaX,
-                  (double)alphaY,
-                  (double)(alphaX + alphaW),
-                  (double)(alphaY + alphaH),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(alphaY - 10.0f, alphaH)) {
+                RenderUtils.drawLightContureRect(alphaX, alphaY, alphaX + alphaW, alphaY + alphaH, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (255.0F * alphaPC >= 28.0F && this.isInRenderZone(alphaY - alphaH - 16.0F, alphaH)) {
-               Fonts.comfortaaBold_12
-                  .drawStringWithShadow(
-                     "Alpha - " + (int)(percXalpha * 255.0F),
-                     (double)(alphaX + 1.0F),
-                     (double)(alphaY - 7.0F),
-                     ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-                  );
+            if (255.0f * alphaPC >= 28.0f && this.isInRenderZone(alphaY - alphaH - 16.0f, alphaH)) {
+                Fonts.comfortaaBold_12.drawStringWithShadow("Alpha - " + (int)(percXalpha * 255.0f), alphaX + 1.0f, alphaY - 7.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(alphaY - 10.0F, alphaH)) {
-               alphaW *= 2.0F;
-               alphaH *= 2.0F;
-
-               for (int i2 = 0; (float)i2 < alphaH; i2 += 4) {
-                  for (int i = 0; (float)i < alphaW; i += 4) {
-                     int colTest = (i % 8 != 0 || i2 == 4) && (i2 != 4 || i % 8 == 0)
-                        ? ColorUtils.getColor(200, 200, 200, 125)
-                        : ColorUtils.getColor(125, 125, 125, 125);
-                     int colAlpha = ColorUtils.getOverallColorFrom(colTest, ColorUtils.swapAlpha(setting.color, 255.0F), (float)i / alphaW);
-                     RenderUtils.drawAlphedRect(
-                        (double)(alphaX + (float)(i / 2)),
-                        (double)(alphaY + (float)(i2 / 2)),
-                        (double)(alphaX + (float)(i / 2) + 2.0F),
-                        (double)(alphaY + (float)(i2 / 2) + 2.0F),
-                        ColorUtils.swapAlpha(colAlpha, 255.0F * alphaPC)
-                     );
-                  }
-               }
-
-               alphaW /= 2.0F;
-               alphaH /= 2.0F;
+            if (this.isInRenderZone(alphaY - 10.0f, alphaH)) {
+                alphaW *= 2.0f;
+                alphaH *= 2.0f;
+                int i2 = 0;
+                while ((float)i2 < alphaH) {
+                    int i = 0;
+                    while ((float)i < alphaW) {
+                        int colTest = i % 8 == 0 && i2 != 4 || i2 == 4 && i % 8 != 0 ? ColorUtils.getColor(125, 125, 125, 125) : ColorUtils.getColor(200, 200, 200, 125);
+                        int colAlpha = ColorUtils.getOverallColorFrom(colTest, ColorUtils.swapAlpha(setting.color, 255.0f), (float)i / alphaW);
+                        RenderUtils.drawAlphedRect(alphaX + (float)(i / 2), alphaY + (float)(i2 / 2), alphaX + (float)(i / 2) + 2.0f, alphaY + (float)(i2 / 2) + 2.0f, ColorUtils.swapAlpha(colAlpha, 255.0f * alphaPC));
+                        i += 4;
+                    }
+                    i2 += 4;
+                }
+                alphaW /= 2.0f;
+                alphaH /= 2.0f;
             }
-
-            if (this.isInRenderZone(alphaY - 10.0F, alphaH)) {
-               float alphaXCursor = alphaX + this.offsetX3s;
-               float alphaYCursor = alphaY + alphaH / 2.0F;
-               RenderUtils.drawAlphedRect(
-                  (double)(alphaXCursor - 1.5F),
-                  (double)(alphaYCursor - 2.5F),
-                  (double)(alphaXCursor + 1.5F),
-                  (double)(alphaYCursor + 2.5F),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-               );
-               RenderUtils.drawAlphedRect(
-                  (double)(alphaXCursor - 1.0F),
-                  (double)(alphaYCursor - 2.0F),
-                  (double)(alphaXCursor + 1.0F),
-                  (double)(alphaYCursor + 2.0F),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(alphaY - 10.0f, alphaH)) {
+                float alphaXCursor = alphaX + this.offsetX3s;
+                float alphaYCursor = alphaY + alphaH / 2.0f;
+                RenderUtils.drawAlphedRect(alphaXCursor - 1.5f, alphaYCursor - 2.5f, alphaXCursor + 1.5f, alphaYCursor + 2.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+                RenderUtils.drawAlphedRect(alphaXCursor - 1.0f, alphaYCursor - 2.0f, alphaXCursor + 1.0f, alphaYCursor + 2.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(draggYgr - 1.5F - 16.0F, 3.0F)) {
-               RenderUtils.drawAlphedRect(
-                  (double)(draggXgr - 1.5F),
-                  (double)(draggYgr - 1.5F),
-                  (double)(draggXgr + 1.5F),
-                  (double)(draggYgr + 1.5F),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-               );
-               RenderUtils.drawAlphedRect(
-                  (double)(draggXgr - 1.0F),
-                  (double)(draggYgr - 1.0F),
-                  (double)(draggXgr + 1.0F),
-                  (double)(draggYgr + 1.0F),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(draggYgr - 1.5f - 16.0f, 3.0f)) {
+                RenderUtils.drawAlphedRect(draggXgr - 1.5f, draggYgr - 1.5f, draggXgr + 1.5f, draggYgr + 1.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+                RenderUtils.drawAlphedRect(draggXgr - 1.0f, draggYgr - 1.0f, draggXgr + 1.0f, draggYgr + 1.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
-            if (this.isInRenderZone(hsbY - 10.0F, hsbH)) {
-               float hsbXCursor = hsbX + this.offsetX2s;
-               float hsbYCursor = hsbY + hsbH / 2.0F;
-               RenderUtils.drawAlphedRect(
-                  (double)(hsbXCursor - 1.5F),
-                  (double)(hsbYCursor - 2.5F),
-                  (double)(hsbXCursor + 1.5F),
-                  (double)(hsbYCursor + 2.5F),
-                  ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0F * alphaPC)
-               );
-               RenderUtils.drawAlphedRect(
-                  (double)(hsbXCursor - 1.0F),
-                  (double)(hsbYCursor - 2.0F),
-                  (double)(hsbXCursor + 1.0F),
-                  (double)(hsbYCursor + 2.0F),
-                  ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC)
-               );
+            if (this.isInRenderZone(hsbY - 10.0f, hsbH)) {
+                float hsbXCursor = hsbX + this.offsetX2s;
+                float hsbYCursor = hsbY + hsbH / 2.0f;
+                RenderUtils.drawAlphedRect(hsbXCursor - 1.5f, hsbYCursor - 2.5f, hsbXCursor + 1.5f, hsbYCursor + 2.5f, ColorUtils.swapAlpha(ColorUtils.getColor(0, 0, 0), 255.0f * alphaPC));
+                RenderUtils.drawAlphedRect(hsbXCursor - 1.0f, hsbYCursor - 2.0f, hsbXCursor + 1.0f, hsbYCursor + 2.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-
             if (this.dragginghsbs) {
-               this.dragginggrs = false;
-               this.draggingalphas = false;
-               this.offsetX2s = MathUtils.clamp((float)mouseX - hsbX, 0.0F, hsbW);
-               this.updateSliderSounds();
+                this.dragginggrs = false;
+                this.draggingalphas = false;
+                this.offsetX2s = MathUtils.clamp((float)mouseX - hsbX, 0.0f, hsbW);
+                this.updateSliderSounds();
             } else if (ColorUtils.getHueFromColor(setting.color) != 0 && !this.dragginggrs) {
-               this.offsetX2s = (float)ColorUtils.getHueFromColor(setting.color) / 360.0F * hsbW;
-            } else if (this.offsetX2s == -1.2312312E8F) {
-               this.offsetX2s = 0.0F;
+                this.offsetX2s = (float)ColorUtils.getHueFromColor(setting.color) / 360.0f * hsbW;
+            } else if (this.offsetX2s == -1.2312312E8f) {
+                this.offsetX2s = 0.0f;
             }
-
             if (this.draggingalphas) {
-               this.dragginggrs = false;
-               this.dragginghsbs = false;
-               this.offsetX3s = MathUtils.clamp((float)mouseX - alphaX, 0.0F, alphaW);
-               this.updateSliderSounds();
+                this.dragginggrs = false;
+                this.dragginghsbs = false;
+                this.offsetX3s = MathUtils.clamp((float)mouseX - alphaX, 0.0f, alphaW);
+                this.updateSliderSounds();
             } else {
-               this.offsetX3s = (float)ColorUtils.getAlphaFromColor(setting.color) / 255.0F * alphaW;
+                this.offsetX3s = (float)ColorUtils.getAlphaFromColor(setting.color) / 255.0f * alphaW;
             }
-
-            int col = Color.getHSBColor(MathUtils.clamp(percXhsb, 0.0F, 0.999F), percXgr, 1.0F - percYgr).getRGB();
-            col = ColorUtils.swapAlpha(col, 255.0F * percXalpha);
-            if (col != 0 && Mouse.isButtonDown(0)) {
-               setting.color = col;
+            float hsb = percXhsb;
+            int col = Color.getHSBColor(MathUtils.clamp(percXhsb, 0.0f, 0.999f), percXgr, 1.0f - percYgr).getRGB();
+            col = ColorUtils.swapAlpha(col, 255.0f * percXalpha);
+            if (col != 0 && Mouse.isButtonDown((int)0)) {
+                setting.color = col;
             }
-         }
-      }
+        }
 
-      public void drawColorPresets(float x, float y, float w, float h, ScaledResolution sr, float alphaPC) {
-         RenderUtils.drawAlphedRect((double)x, (double)(y + 15.0F), (double)(x + w), (double)(y + h), ColorUtils.getColor(0, 0, 0, 60.0F * alphaPC));
-         RenderUtils.drawLightContureRect((double)x, (double)y, (double)(x + w), (double)(y + h), ColorUtils.getColor(255, 255, 255, 60.0F * alphaPC));
-         if (this.isInRenderZone(y, 15.0F)) {
-            RenderUtils.drawAlphedRect((double)x, (double)y, (double)(x + w), (double)(y + 15.0F), ColorUtils.getColor(0, 0, 0, 90.0F * alphaPC));
-         }
-
-         int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0F * alphaPC);
-         int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0F * alphaPC);
-         int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0F * alphaPC);
-         int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0F * alphaPC);
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            x, y, x + w, y + h, 1.0F, 9.0F, czC1, czC2, czC3, czC4, true, false, true
-         );
-         if (255.0F * alphaPC >= 33.0F && this.isInRenderZone(y, 15.0F)) {
-            Fonts.mntsb_15
-               .drawString("Presets", (double)(x + 14.0F), (double)(y + 6.0F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
-            Fonts.stylesicons_20
-               .drawString("M", (double)(x + 3.0F), (double)(y + 6.5F), ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0F * alphaPC));
-         }
-
-         CFontRenderer font = Fonts.noise_15;
-         float yStep = 15.0F;
-
-         for (ClientColors.PresetColors colors : ClientColors.PresetColors.values()) {
-            if (this.isInRenderZone(y + yStep, 20.0F)) {
-               int bgElementCol = colors.equals(ClientColors.getCurrentPreset())
-                  ? ColorUtils.swapAlpha(
-                     ColorUtils.getOverallColorFrom(
-                        ColorUtils.getOverallColorFrom(ClientColors.getColor1(), ClientColors.getColor2()),
-                        -1,
-                        ClientColors.presetStepAnimGetAnim == 0.0F ? 1.0F : ClientColors.presetStepAnimGetAnim
-                     ),
-                     (30.0F + (ClientColors.presetStepAnimGetAnim == 0.0F ? 0.0F : 1.0F - ClientColors.presetStepAnimGetAnim) * 225.0F) * alphaPC
-                  )
-                  : 0;
-               RenderUtils.drawAlphedRect(
-                  (double)(x + 1.0F), (double)(y + yStep + 1.0F), (double)(x + w - 1.0F), (double)(y + yStep + 20.0F - 1.0F), bgElementCol
-               );
-               if (colors.equals(ClientColors.getCurrentPreset())) {
-                  RenderUtils.drawAlphedSideways(
-                     (double)(x + 3.0F), (double)(y + yStep + 1.0F), (double)(x + w / 2.0F), (double)(y + yStep + 20.0F - 1.0F), bgElementCol, 0, true
-                  );
-                  RenderUtils.drawAlphedSideways(
-                     (double)(x + 1.0F), (double)(y + yStep + 1.0F), (double)(x + 3.0F), (double)(y + yStep + 20.0F - 1.0F), 0, bgElementCol, true
-                  );
-               }
-
-               if (colors.equals(ClientColors.getCurrentPreset()) && ClientColors.presetStepAnimGetAnim != 0.0F) {
-                  float changePC = ClientColors.presetStepAnimGetAnim;
-                  changePC = (double)changePC > 0.5 ? 1.0F - changePC : changePC;
-                  changePC *= 2.0F;
-                  int waveC = ColorUtils.swapAlpha(-1, changePC * 255.0F * alphaPC);
-                  if (ColorUtils.getAlphaFromColor(waveC) > 26) {
-                     RenderUtils.drawAlphedSideways(
-                        (double)(x + 1.0F),
-                        (double)(y + yStep + 2.0F),
-                        (double)(x + (w - 1.0F) * ClientColors.presetStepAnimGetAnim),
-                        (double)(y + yStep + 20.0F - 2.0F),
-                        0,
-                        waveC,
-                        true
-                     );
-                     RenderUtils.drawAlphedSideways(
-                        (double)(x + (w - 1.0F) * ClientColors.presetStepAnimGetAnim),
-                        (double)(y + yStep + 2.0F),
-                        (double)(x + w - 1.0F),
-                        (double)(y + yStep + 20.0F - 2.0F),
-                        waveC,
-                        0,
-                        true
-                     );
-                     RenderUtils.drawAlphedRect(
-                        (double)(x + (w - 1.0F) - (w - 1.0F) * ClientColors.presetStepAnimGetAnim),
-                        (double)(y + yStep + 1.0F),
-                        (double)(x + w - 1.0F),
-                        (double)(y + yStep + 2.0F),
-                        waveC
-                     );
-                     RenderUtils.drawAlphedRect(
-                        (double)(x + (w - 1.0F) - (w - 1.0F) * ClientColors.presetStepAnimGetAnim),
-                        (double)(y + yStep + 20.0F - 2.0F),
-                        (double)(x + w - 1.0F),
-                        (double)(y + yStep + 20.0F - 1.0F),
-                        waveC
-                     );
-                     RenderUtils.drawAlphedRect(
-                        (double)(x + 1.0F),
-                        (double)(y + yStep + 1.0F),
-                        (double)(x + 2.0F),
-                        (double)(y + yStep + 20.0F * ClientColors.presetStepAnimGetAnim - 1.0F),
-                        waveC
-                     );
-                     RenderUtils.drawAlphedRect(
-                        (double)(x + (w - 2.0F)),
-                        (double)(y + yStep + 1.0F + 20.0F - 20.0F * ClientColors.presetStepAnimGetAnim),
-                        (double)(x + (w - 1.0F)),
-                        (double)(y + yStep + 20.0F - 1.0F),
-                        waveC
-                     );
-                     GL11.glPushMatrix();
-                     GL11.glTranslated((double)(2.0F * changePC), 0.0, 0.0);
-                     changePC = MathUtils.clamp(ClientColors.presetStepAnimGetAnim, 0.0F, 0.5F) * 2.0F;
-                     changePC = (double)changePC > 0.5 ? 1.0F - changePC : changePC;
-                     changePC *= 2.0F;
-                     RenderUtils.customRotatedObject2D(x + 6.0F, y + yStep, (float)font.getStringWidth(colors.name), 20.0F, (double)(changePC * 20.0F));
-                  }
-               }
-
-               int i = 0;
-
-               for (char c : colors.name.toCharArray()) {
-                  int textColor = ColorUtils.getOverallColorFrom(
-                     ColorUtils.getFixedWhiteColor(),
-                     ColorUtils.getOverallColorFrom(colors.color1, colors.color2, (float)i / (float)font.getStringWidth(colors.name)),
-                     0.6F
-                  );
-                  if (255.0F * alphaPC >= 33.0F) {
-                     font.drawStringWithOutline(
-                        String.valueOf(c), (double)(x + 6.0F + (float)i), (double)(y + yStep + 8.0F), ColorUtils.swapAlpha(textColor, 255.0F * alphaPC)
-                     );
-                  }
-
-                  i += font.getStringWidth(String.valueOf(c));
-               }
-
-               if (colors.equals(ClientColors.getCurrentPreset()) && ClientColors.presetStepAnimGetAnim != 0.0F) {
-                  GL11.glPopMatrix();
-               }
-
-               float ocX = w - 35.0F;
-               float tcX = w - 20.0F;
-               float otcSize = 10.0F;
-               float otxExtY = 5.0F;
-               int c1 = ColorUtils.swapAlpha(colors.color1, 255.0F * alphaPC);
-               int c2 = ColorUtils.swapAlpha(colors.color2, 255.0F * alphaPC);
-               int cBGC = ColorUtils.getColor(0, 0, 0, 120.0F * alphaPC);
-               RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                  x + ocX - 1.0F,
-                  y + yStep + otxExtY - 1.0F,
-                  x + tcX + otcSize + 1.0F,
-                  y + yStep + otcSize + otxExtY + 1.0F,
-                  3.0F,
-                  2.0F,
-                  cBGC,
-                  cBGC,
-                  cBGC,
-                  cBGC,
-                  false,
-                  true,
-                  true
-               );
-               if (c1 == c2) {
-                  boolean scalling = colors.equals(ClientColors.getCurrentPreset()) && ClientColors.presetStepAnimGetAnim != 0.0F;
-                  float scale = 0.0F;
-                  if (scalling) {
-                     scale = ClientColors.presetStepAnimGetAnim;
-                     scale = (double)scale > 0.5 ? 1.0F - scale : scale;
-                     scale *= 2.0F;
-                     scale = 1.0F - 0.25F * scale;
-                  }
-
-                  if (scale != 0.0F) {
-                     GL11.glPushMatrix();
-                     RenderUtils.customScaledObject2D(x + ocX, y + yStep + otxExtY, tcX - ocX + otcSize, otcSize, scale);
-                  }
-
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + ocX,
-                     y + yStep + otxExtY,
-                     x + tcX + otcSize,
-                     y + yStep + otcSize + otxExtY,
-                     2.0F,
-                     8.0F,
-                     ColorUtils.swapAlpha(c1, 65.0F * alphaPC),
-                     ColorUtils.swapAlpha(c2, 85.0F * alphaPC),
-                     ColorUtils.swapAlpha(c2, 85.0F * alphaPC),
-                     ColorUtils.swapAlpha(c1, 65.0F * alphaPC),
-                     true,
-                     false,
-                     true
-                  );
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + ocX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0F, 1.0F, c1, c2, c2, c1, false, true, true
-                  );
-                  if (scale != 0.0F) {
-                     GL11.glPopMatrix();
-                  }
-               } else {
-                  boolean rotate = colors.equals(ClientColors.getCurrentPreset()) && ClientColors.presetStepAnimGetAnim != 0.0F;
-                  float rot = 0.0F;
-                  if (rotate) {
-                     GL11.glPushMatrix();
-                     rot = ClientColors.presetStepAnimGetAnim;
-                     rot *= 180.0F;
-                  }
-
-                  if (rot != 0.0F) {
-                     RenderUtils.customRotatedObject2D(x + ocX, y + yStep + otxExtY, otcSize, otcSize, (double)rot);
-                  }
-
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + ocX,
-                     y + yStep + otxExtY,
-                     x + ocX + otcSize,
-                     y + yStep + otcSize + otxExtY,
-                     2.0F,
-                     8.0F,
-                     ColorUtils.swapAlpha(c1, 65.0F * alphaPC),
-                     ColorUtils.swapAlpha(c1, 75.0F * alphaPC),
-                     ColorUtils.swapAlpha(c1, 75.0F * alphaPC),
-                     ColorUtils.swapAlpha(c1, 65.0F * alphaPC),
-                     true,
-                     false,
-                     true
-                  );
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + ocX, y + yStep + otxExtY, x + ocX + otcSize, y + yStep + otcSize + otxExtY, 2.0F, 1.0F, c1, c1, c1, c1, false, true, true
-                  );
-                  if (rot != 0.0F) {
-                     RenderUtils.customRotatedObject2D(x + ocX, y + yStep + otxExtY, otcSize, otcSize, (double)(-rot));
-                  }
-
-                  if (rot != 0.0F) {
-                     RenderUtils.customRotatedObject2D(x + tcX, y + yStep + otxExtY, otcSize, otcSize, (double)rot);
-                  }
-
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + tcX,
-                     y + yStep + otxExtY,
-                     x + tcX + otcSize,
-                     y + yStep + otcSize + otxExtY,
-                     2.0F,
-                     8.0F,
-                     ColorUtils.swapAlpha(c2, 75.0F * alphaPC),
-                     ColorUtils.swapAlpha(c2, 85.0F * alphaPC),
-                     ColorUtils.swapAlpha(c2, 85.0F * alphaPC),
-                     ColorUtils.swapAlpha(c2, 75.0F * alphaPC),
-                     true,
-                     false,
-                     true
-                  );
-                  RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-                     x + tcX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0F, 1.0F, c2, c2, c2, c2, false, true, true
-                  );
-                  if (rotate) {
-                     GL11.glPopMatrix();
-                  }
-               }
+        public void drawColorPresets(float x, float y, float w, float h, ScaledResolution sr, float alphaPC) {
+            RenderUtils.drawAlphedRect(x, y + 15.0f, x + w, y + h, ColorUtils.getColor(0, 0, 0, 60.0f * alphaPC));
+            RenderUtils.drawLightContureRect(x, y, x + w, y + h, ColorUtils.getColor(255, 255, 255, 60.0f * alphaPC));
+            if (this.isInRenderZone(y, 15.0f)) {
+                RenderUtils.drawAlphedRect(x, y, x + w, y + 15.0f, ColorUtils.getColor(0, 0, 0, 90.0f * alphaPC));
             }
-
-            yStep += 20.0F;
-         }
-      }
-
-      public float getPresetsHeight() {
-         int height = 15;
-
-         for (ClientColors.PresetColors colors : ClientColors.PresetColors.values()) {
-            height += 20;
-         }
-
-         return ClientColors.get.Mode.currentMode.equalsIgnoreCase("Presets") ? (float)height : 0.0F;
-      }
-
-      public boolean pickerIsDouble() {
-         String currentMode = ClientColors.get.Mode.currentMode;
-         return currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade");
-      }
-
-      public float getPickerHeight() {
-         return 98.0F;
-      }
-
-      public boolean isHovered() {
-         return this.hover;
-      }
-
-      public void updateHover(int mouseX, int mouseY) {
-         this.hover = this.isHover(this.getX(), this.getY(), this.getWidth(), this.getHeight(), mouseX, mouseY);
-      }
-
-      public boolean hasSettings() {
-         String mode = ClientColors.get.Mode.currentMode;
-         return mode.equalsIgnoreCase("Presets") || mode.equalsIgnoreCase("Colored") || mode.equalsIgnoreCase("TwoColored") || mode.equalsIgnoreCase("Fade");
-      }
-
-      public float getTotalElementsHeight() {
-         String mode = ClientColors.get.Mode.currentMode;
-         boolean hasPicker = mode.equalsIgnoreCase("Colored") || mode.equalsIgnoreCase("TwoColored") || mode.equalsIgnoreCase("Fade");
-         boolean hasPresets = mode.equalsIgnoreCase("Presets");
-         boolean hasPickerDouble = hasPicker && this.pickerIsDouble();
-         float getPickerHeight = hasPicker ? (hasPickerDouble ? 22.0F + this.getPickerHeight() * 2.0F : 12.0F + this.getPickerHeight()) : 0.0F;
-         float getPresetsHeight = hasPresets ? 11.0F + this.getPresetsHeight() : 0.0F;
-         float getModesHeight = this.getModesHeight();
-         return getModesHeight + getPresetsHeight + getPickerHeight;
-      }
-
-      public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-         this.updateHover(mouseX, mouseY);
-         if (ClientColors.modeStepAnim.to == 1.0F) {
-            ClientColors.modeStepAnimGetAnim = ClientColors.modeStepAnim.getAnim();
-            if ((double)ClientColors.modeStepAnim.getAnim() > 0.99) {
-               ClientColors.modeStepAnim.setAnim(0.0F);
-               ClientColors.modeStepAnim.to = 0.0F;
+            int czC1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(180)), 55.0f * alphaPC);
+            int czC2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2()), 55.0f * alphaPC);
+            int czC3 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor2(180)), 25.0f * alphaPC);
+            int czC4 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ClientColors.getColor1(0)), 25.0f * alphaPC);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 1.0f, 9.0f, czC1, czC2, czC3, czC4, true, false, true);
+            if (255.0f * alphaPC >= 33.0f && this.isInRenderZone(y, 15.0f)) {
+                Fonts.mntsb_15.drawString("Presets", x + 14.0f, y + 6.0f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
+                Fonts.stylesicons_20.drawString("M", x + 3.0f, y + 6.5f, ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * alphaPC));
             }
-         } else {
-            ClientColors.modeStepAnimGetAnim = 0.0F;
-         }
-
-         ClientColors.presetStepAnim.speed = 0.03F;
-         if (ClientColors.prevPreset != null && ClientColors.presetStepAnim.to == 1.0F) {
-            ClientColors.presetStepAnimGetAnim = ClientColors.presetStepAnim.getAnim();
-            if ((double)ClientColors.presetStepAnim.getAnim() > 0.99) {
-               ClientColors.presetStepAnim.setAnim(0.0F);
-               ClientColors.presetStepAnim.to = 0.0F;
+            CFontRenderer font = Fonts.noise_15;
+            float yStep = 15.0f;
+            for (PresetColors colors : PresetColors.values()) {
+                if (this.isInRenderZone(y + yStep, 20.0f)) {
+                    int bgElementCol = colors.equals((Object)ClientColors.getCurrentPreset()) ? ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ColorUtils.getOverallColorFrom(ClientColors.getColor1(), ClientColors.getColor2()), -1, presetStepAnimGetAnim == 0.0f ? 1.0f : presetStepAnimGetAnim), (30.0f + (presetStepAnimGetAnim == 0.0f ? 0.0f : 1.0f - presetStepAnimGetAnim) * 225.0f) * alphaPC) : 0;
+                    RenderUtils.drawAlphedRect(x + 1.0f, y + yStep + 1.0f, x + w - 1.0f, y + yStep + 20.0f - 1.0f, bgElementCol);
+                    if (colors.equals((Object)ClientColors.getCurrentPreset())) {
+                        RenderUtils.drawAlphedSideways(x + 3.0f, y + yStep + 1.0f, x + w / 2.0f, y + yStep + 20.0f - 1.0f, bgElementCol, 0, true);
+                        RenderUtils.drawAlphedSideways(x + 1.0f, y + yStep + 1.0f, x + 3.0f, y + yStep + 20.0f - 1.0f, 0, bgElementCol, true);
+                    }
+                    if (colors.equals((Object)ClientColors.getCurrentPreset()) && presetStepAnimGetAnim != 0.0f) {
+                        float changePC = presetStepAnimGetAnim;
+                        changePC = (double)changePC > 0.5 ? 1.0f - changePC : changePC;
+                        int waveC = ColorUtils.swapAlpha(-1, (changePC *= 2.0f) * 255.0f * alphaPC);
+                        if (ColorUtils.getAlphaFromColor(waveC) > 26) {
+                            RenderUtils.drawAlphedSideways(x + 1.0f, y + yStep + 2.0f, x + (w - 1.0f) * presetStepAnimGetAnim, y + yStep + 20.0f - 2.0f, 0, waveC, true);
+                            RenderUtils.drawAlphedSideways(x + (w - 1.0f) * presetStepAnimGetAnim, y + yStep + 2.0f, x + w - 1.0f, y + yStep + 20.0f - 2.0f, waveC, 0, true);
+                            RenderUtils.drawAlphedRect(x + (w - 1.0f) - (w - 1.0f) * presetStepAnimGetAnim, y + yStep + 1.0f, x + w - 1.0f, y + yStep + 2.0f, waveC);
+                            RenderUtils.drawAlphedRect(x + (w - 1.0f) - (w - 1.0f) * presetStepAnimGetAnim, y + yStep + 20.0f - 2.0f, x + w - 1.0f, y + yStep + 20.0f - 1.0f, waveC);
+                            RenderUtils.drawAlphedRect(x + 1.0f, y + yStep + 1.0f, x + 2.0f, y + yStep + 20.0f * presetStepAnimGetAnim - 1.0f, waveC);
+                            RenderUtils.drawAlphedRect(x + (w - 2.0f), y + yStep + 1.0f + 20.0f - 20.0f * presetStepAnimGetAnim, x + (w - 1.0f), y + yStep + 20.0f - 1.0f, waveC);
+                            GL11.glPushMatrix();
+                            GL11.glTranslated((double)(2.0f * changePC), (double)0.0, (double)0.0);
+                            changePC = MathUtils.clamp(presetStepAnimGetAnim, 0.0f, 0.5f) * 2.0f;
+                            changePC = (double)changePC > 0.5 ? 1.0f - changePC : changePC;
+                            RenderUtils.customRotatedObject2D(x + 6.0f, y + yStep, font.getStringWidth(colors.name), 20.0f, (changePC *= 2.0f) * 20.0f);
+                        }
+                    }
+                    int i = 0;
+                    for (char c : colors.name.toCharArray()) {
+                        int textColor = ColorUtils.getOverallColorFrom(ColorUtils.getFixedWhiteColor(), ColorUtils.getOverallColorFrom(colors.color1, colors.color2, (float)i / (float)font.getStringWidth(colors.name)), 0.6f);
+                        if (255.0f * alphaPC >= 33.0f) {
+                            font.drawStringWithOutline(String.valueOf(c), x + 6.0f + (float)i, y + yStep + 8.0f, ColorUtils.swapAlpha(textColor, 255.0f * alphaPC));
+                        }
+                        i += font.getStringWidth(String.valueOf(c));
+                    }
+                    if (colors.equals((Object)ClientColors.getCurrentPreset()) && presetStepAnimGetAnim != 0.0f) {
+                        GL11.glPopMatrix();
+                    }
+                    float ocX = w - 35.0f;
+                    float tcX = w - 20.0f;
+                    float otcSize = 10.0f;
+                    float otxExtY = 5.0f;
+                    int c1 = ColorUtils.swapAlpha(colors.color1, 255.0f * alphaPC);
+                    int c2 = ColorUtils.swapAlpha(colors.color2, 255.0f * alphaPC);
+                    int cBGC = ColorUtils.getColor(0, 0, 0, 120.0f * alphaPC);
+                    RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + ocX - 1.0f, y + yStep + otxExtY - 1.0f, x + tcX + otcSize + 1.0f, y + yStep + otcSize + otxExtY + 1.0f, 3.0f, 2.0f, cBGC, cBGC, cBGC, cBGC, false, true, true);
+                    if (c1 == c2) {
+                        boolean scalling = colors.equals((Object)ClientColors.getCurrentPreset()) && presetStepAnimGetAnim != 0.0f;
+                        float scale = 0.0f;
+                        if (scalling) {
+                            scale = presetStepAnimGetAnim;
+                            scale = (double)scale > 0.5 ? 1.0f - scale : scale;
+                            scale *= 2.0f;
+                            scale = 1.0f - 0.25f * scale;
+                        }
+                        if (scale != 0.0f) {
+                            GL11.glPushMatrix();
+                            RenderUtils.customScaledObject2D(x + ocX, y + yStep + otxExtY, tcX - ocX + otcSize, otcSize, scale);
+                        }
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + ocX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 8.0f, ColorUtils.swapAlpha(c1, 65.0f * alphaPC), ColorUtils.swapAlpha(c2, 85.0f * alphaPC), ColorUtils.swapAlpha(c2, 85.0f * alphaPC), ColorUtils.swapAlpha(c1, 65.0f * alphaPC), true, false, true);
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + ocX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 1.0f, c1, c2, c2, c1, false, true, true);
+                        if (scale != 0.0f) {
+                            GL11.glPopMatrix();
+                        }
+                    } else {
+                        boolean rotate = colors.equals((Object)ClientColors.getCurrentPreset()) && presetStepAnimGetAnim != 0.0f;
+                        float rot = 0.0f;
+                        if (rotate) {
+                            GL11.glPushMatrix();
+                            rot = presetStepAnimGetAnim;
+                            rot *= 180.0f;
+                        }
+                        if (rot != 0.0f) {
+                            RenderUtils.customRotatedObject2D(x + ocX, y + yStep + otxExtY, otcSize, otcSize, rot);
+                        }
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + ocX, y + yStep + otxExtY, x + ocX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 8.0f, ColorUtils.swapAlpha(c1, 65.0f * alphaPC), ColorUtils.swapAlpha(c1, 75.0f * alphaPC), ColorUtils.swapAlpha(c1, 75.0f * alphaPC), ColorUtils.swapAlpha(c1, 65.0f * alphaPC), true, false, true);
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + ocX, y + yStep + otxExtY, x + ocX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 1.0f, c1, c1, c1, c1, false, true, true);
+                        if (rot != 0.0f) {
+                            RenderUtils.customRotatedObject2D(x + ocX, y + yStep + otxExtY, otcSize, otcSize, -rot);
+                        }
+                        if (rot != 0.0f) {
+                            RenderUtils.customRotatedObject2D(x + tcX, y + yStep + otxExtY, otcSize, otcSize, rot);
+                        }
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + tcX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 8.0f, ColorUtils.swapAlpha(c2, 75.0f * alphaPC), ColorUtils.swapAlpha(c2, 85.0f * alphaPC), ColorUtils.swapAlpha(c2, 85.0f * alphaPC), ColorUtils.swapAlpha(c2, 75.0f * alphaPC), true, false, true);
+                        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + tcX, y + yStep + otxExtY, x + tcX + otcSize, y + yStep + otcSize + otxExtY, 2.0f, 1.0f, c2, c2, c2, c2, false, true, true);
+                        if (rotate) {
+                            GL11.glPopMatrix();
+                        }
+                    }
+                }
+                yStep += 20.0f;
             }
-         } else {
-            ClientColors.presetStepAnimGetAnim = 0.0F;
-         }
+        }
 
-         GlStateManager.disableDepth();
-         this.updatePosXY();
-         this.heightCalculate();
-         this.dragUpdate(mouseX, mouseY);
-         float alphaPC = ClickGuiScreen.globalAlpha.anim / 255.0F;
-         alphaPC *= 1.025F;
-         if (alphaPC > 1.0F) {
-            alphaPC = 1.0F;
-         }
-
-         alphaPC = (float)MathUtils.easeInOutQuad((double)alphaPC);
-         GL11.glPushMatrix();
-         RenderUtils.customScaledObject2D(this.getX(), this.getY(), this.getWidth(), this.getHeight(), ClickGuiScreen.scale.anim * alphaPC);
-         RenderUtils.customRotatedObject2D(this.getX(), this.getY(), this.dragX * 2.0F, this.dragY * 2.0F, (double)this.getRotate());
-         this.drawPanel(
-            mouseX, mouseY, partialTicks, this.getX(), this.getY(), this.getWidth(), this.getHeight(), this.open, new ScaledResolution(Module.mc), alphaPC
-         );
-         GL11.glPopMatrix();
-         GlStateManager.disableDepth();
-         if (this.isHover(this.getX() - 5.0F, this.getY() - 5.0F, this.getWidth() + 10.0F, this.getHeight() + 10.0F, mouseX, mouseY)) {
-            ClickGuiScreen.resetHolds();
-         }
-      }
-
-      public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
-         float yPos = this.getY();
-         float xPos = this.getX();
-         if (this.isHover(xPos, yPos, this.getWidth(), 20.0F, mouseX, mouseY)) {
-            if (mouseButton == 0) {
-               this.dragging = true;
-            } else if (mouseButton == 1) {
-               this.open = !this.open;
-               ClientTune.get.playGuiColorsScreenOpenOrCloseSong(this.open);
+        public float getPresetsHeight() {
+            int height = 15;
+            for (PresetColors colors : PresetColors.values()) {
+                height += 20;
             }
-         }
+            return ClientColors.get.Mode.currentMode.equalsIgnoreCase("Presets") ? (float)height : 0.0f;
+        }
 
-         if (!(this.getHeight() < 30.0F)) {
+        public boolean pickerIsDouble() {
+            String currentMode = ClientColors.get.Mode.currentMode;
+            return currentMode.equalsIgnoreCase("TwoColored") || currentMode.equalsIgnoreCase("Fade");
+        }
+
+        public float getPickerHeight() {
+            return 98.0f;
+        }
+
+        public boolean isHovered() {
+            return this.hover;
+        }
+
+        public void updateHover(int mouseX, int mouseY) {
+            this.hover = this.isHover(this.getX(), this.getY(), this.getWidth(), this.getHeight(), mouseX, mouseY);
+        }
+
+        public boolean hasSettings() {
+            String mode = ClientColors.get.Mode.currentMode;
+            return mode.equalsIgnoreCase("Presets") || mode.equalsIgnoreCase("Colored") || mode.equalsIgnoreCase("TwoColored") || mode.equalsIgnoreCase("Fade");
+        }
+
+        public float getTotalElementsHeight() {
+            boolean hasPickerDouble;
+            String mode = ClientColors.get.Mode.currentMode;
+            boolean hasPicker = mode.equalsIgnoreCase("Colored") || mode.equalsIgnoreCase("TwoColored") || mode.equalsIgnoreCase("Fade");
+            boolean hasPresets = mode.equalsIgnoreCase("Presets");
+            boolean bl = hasPickerDouble = hasPicker && this.pickerIsDouble();
+            float getPickerHeight = hasPicker ? (hasPickerDouble ? 22.0f + this.getPickerHeight() * 2.0f : 12.0f + this.getPickerHeight()) : 0.0f;
+            float getPresetsHeight = hasPresets ? 11.0f + this.getPresetsHeight() : 0.0f;
+            float getModesHeight = this.getModesHeight();
+            return getModesHeight + getPresetsHeight + getPickerHeight;
+        }
+
+        public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+            this.updateHover(mouseX, mouseY);
+            if (ClientColors.modeStepAnim.to == 1.0f) {
+                modeStepAnimGetAnim = modeStepAnim.getAnim();
+                if ((double)modeStepAnim.getAnim() > 0.99) {
+                    modeStepAnim.setAnim(0.0f);
+                    ClientColors.modeStepAnim.to = 0.0f;
+                }
+            } else {
+                modeStepAnimGetAnim = 0.0f;
+            }
+            ClientColors.presetStepAnim.speed = 0.03f;
+            if (prevPreset != null && ClientColors.presetStepAnim.to == 1.0f) {
+                presetStepAnimGetAnim = presetStepAnim.getAnim();
+                if ((double)presetStepAnim.getAnim() > 0.99) {
+                    presetStepAnim.setAnim(0.0f);
+                    ClientColors.presetStepAnim.to = 0.0f;
+                }
+            } else {
+                presetStepAnimGetAnim = 0.0f;
+            }
+            GlStateManager.disableDepth();
+            this.updatePosXY();
+            this.heightCalculate();
+            this.dragUpdate(mouseX, mouseY);
+            float alphaPC = ClickGuiScreen.globalAlpha.anim / 255.0f;
+            alphaPC *= 1.025f;
+            if (alphaPC > 1.0f) {
+                alphaPC = 1.0f;
+            }
+            alphaPC = (float)MathUtils.easeInOutQuad(alphaPC);
+            GL11.glPushMatrix();
+            RenderUtils.customScaledObject2D(this.getX(), this.getY(), this.getWidth(), this.getHeight(), ClickGuiScreen.scale.anim * alphaPC);
+            RenderUtils.customRotatedObject2D(this.getX(), this.getY(), this.dragX * 2.0f, this.dragY * 2.0f, this.getRotate());
+            this.drawPanel(mouseX, mouseY, partialTicks, this.getX(), this.getY(), this.getWidth(), this.getHeight(), this.open, new ScaledResolution(Module.mc), alphaPC);
+            GL11.glPopMatrix();
+            GlStateManager.disableDepth();
+            if (this.isHover(this.getX() - 5.0f, this.getY() - 5.0f, this.getWidth() + 10.0f, this.getHeight() + 10.0f, mouseX, mouseY)) {
+                ClickGuiScreen.resetHolds();
+            }
+        }
+
+        public void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+            float grW;
+            float grH;
+            float grY;
+            float grX;
+            float alphaH;
+            float alphaW;
+            float alphaY;
+            float posY;
+            float yPos = this.getY();
+            float xPos = this.getX();
+            if (this.isHover(xPos, yPos, this.getWidth(), 20.0f, mouseX, mouseY)) {
+                if (mouseButton == 0) {
+                    this.dragging = true;
+                } else if (mouseButton == 1) {
+                    this.open = !this.open;
+                    ClientTune.get.playGuiColorsScreenOpenOrCloseSong(this.open);
+                }
+            }
+            if (this.getHeight() < 30.0f) {
+                return;
+            }
             yPos -= this.getScrollY();
-            if (this.isHover(this.getX(), this.getY() + 20.0F, this.getWidth(), this.getHeight(), mouseX, mouseY)) {
-               if (mouseButton == 0 && this.isHover(xPos + 5.0F, yPos + 35.0F, this.getModesWidth(), this.getModesHeight() - 10.0F, mouseX, mouseY)) {
-                  int curMode = -1;
-                  float height = 0.0F;
-                  ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(2);
-                  if (setting.category == Settings.Category.String_Massive && this.open) {
-                     for (String mode : setting.modes) {
-                        height += 10.0F;
-                        if (this.isHover(xPos + 5.0F, yPos + 25.0F + height, this.getModesWidth() - 10.0F, 10.0F, mouseX, mouseY)) {
-                           curMode = (int)(height / 10.0F - 1.0F);
+            if (this.isHover(this.getX(), this.getY() + 20.0f, this.getWidth(), this.getHeight(), mouseX, mouseY)) {
+                ModeSettings setting;
+                float height;
+                int curMode;
+                if (mouseButton == 0 && this.isHover(xPos + 5.0f, yPos + 35.0f, this.getModesWidth(), this.getModesHeight() - 10.0f, mouseX, mouseY)) {
+                    curMode = -1;
+                    height = 0.0f;
+                    setting = (ModeSettings)ClientColors.get.settings.get(2);
+                    if (setting.category == Settings.Category.String_Massive && this.open) {
+                        for (String mode : setting.modes) {
+                            if (!this.isHover(xPos + 5.0f, yPos + 25.0f + (height += 10.0f), this.getModesWidth() - 10.0f, 10.0f, mouseX, mouseY)) continue;
+                            curMode = (int)(height / 10.0f - 1.0f);
                         }
-                     }
-                  }
-
-                  try {
-                     ClickGuiScreen.scrollAnimation.to = 0.0F;
-                     ClickGuiScreen.dWhell = 0.0F;
-                     if (setting.currentMode != setting.modes[curMode] && curMode != -1) {
-                        ClientColors.prevMode = setting.currentMode;
-                        setting.currentMode = setting.modes[curMode];
-                        ClientTune.get.playGuiClientcolorsChangeModeSong();
-                        ClientColors.modeStepAnim.setAnim(0.0F);
-                        ClientColors.modeStepAnim.to = 1.0F;
-                        ClientColors.modeStepAnimGetAnim = 0.001F;
-                     }
-                  } catch (Exception var21) {
-                     var21.printStackTrace();
-                  }
-               }
-
-               if (ClientColors.get.Mode.currentMode.equalsIgnoreCase("Presets")
-                  && mouseButton == 0
-                  && this.isHover(
-                     xPos + 5.0F,
-                     yPos + 35.0F + this.getModesHeight() - 10.0F + 11.0F + 15.0F,
-                     this.getPresetsWidth(),
-                     this.getPresetsHeight() - 15.0F,
-                     mouseX,
-                     mouseY
-                  )) {
-                  int curMode = -1;
-                  float height = 0.0F;
-                  ModeSettings setting = (ModeSettings)ClientColors.get.settings.get(3);
-                  if (setting.category == Settings.Category.String_Massive && this.open) {
-                     for (String modex : setting.modes) {
-                        height += 20.0F;
-                        if (this.isHover(
-                           xPos + 5.0F,
-                           yPos + 15.0F + this.getModesHeight() - 10.0F + 11.0F + 15.0F + height,
-                           this.getModesWidth() - 15.0F,
-                           20.0F,
-                           mouseX,
-                           mouseY
-                        )) {
-                           curMode = (int)(height / 20.0F - 1.0F);
+                    }
+                    try {
+                        ClickGuiScreen.scrollAnimation.to = 0.0f;
+                        ClickGuiScreen.dWhell = 0.0f;
+                        if (setting.currentMode != setting.modes[curMode] && curMode != -1) {
+                            prevMode = setting.currentMode;
+                            setting.currentMode = setting.modes[curMode];
+                            ClientTune.get.playGuiClientcolorsChangeModeSong();
+                            modeStepAnim.setAnim(0.0f);
+                            ClientColors.modeStepAnim.to = 1.0f;
+                            modeStepAnimGetAnim = 0.001f;
                         }
-                     }
-                  }
-
-                  try {
-                     if (setting.currentMode != setting.modes[curMode] && curMode != -1) {
-                        ClientColors.prevPreset = ClientColors.getCurrentPreset();
-                        setting.currentMode = setting.modes[curMode];
-                        ClientTune.get.playGuiClientcolorsChangePresetSong();
-                        ClientColors.presetStepAnim.setAnim(0.0F);
-                        ClientColors.presetStepAnim.to = 1.0F;
-                        ClientColors.presetStepAnimGetAnim = 0.01F;
-                     }
-                  } catch (Exception var20) {
-                     var20.printStackTrace();
-                  }
-               }
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (ClientColors.get.Mode.currentMode.equalsIgnoreCase("Presets") && mouseButton == 0 && this.isHover(xPos + 5.0f, yPos + 35.0f + this.getModesHeight() - 10.0f + 11.0f + 15.0f, this.getPresetsWidth(), this.getPresetsHeight() - 15.0f, mouseX, mouseY)) {
+                    curMode = -1;
+                    height = 0.0f;
+                    setting = (ModeSettings)ClientColors.get.settings.get(3);
+                    if (setting.category == Settings.Category.String_Massive && this.open) {
+                        for (String mode : setting.modes) {
+                            if (!this.isHover(xPos + 5.0f, yPos + 15.0f + this.getModesHeight() - 10.0f + 11.0f + 15.0f + (height += 20.0f), this.getModesWidth() - 15.0f, 20.0f, mouseX, mouseY)) continue;
+                            curMode = (int)(height / 20.0f - 1.0f);
+                        }
+                    }
+                    try {
+                        if (setting.currentMode != setting.modes[curMode] && curMode != -1) {
+                            prevPreset = ClientColors.getCurrentPreset();
+                            setting.currentMode = setting.modes[curMode];
+                            ClientTune.get.playGuiClientcolorsChangePresetSong();
+                            presetStepAnim.setAnim(0.0f);
+                            ClientColors.presetStepAnim.to = 1.0f;
+                            presetStepAnimGetAnim = 0.01f;
+                        }
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
-
-            if ((
-                  ClientColors.get.Mode.currentMode.equalsIgnoreCase("Colored")
-                     || ClientColors.get.Mode.currentMode.equalsIgnoreCase("TwoColored")
-                     || ClientColors.get.Mode.currentMode.equalsIgnoreCase("Fade")
-               )
-               && mouseButton == 0
-               && this.isHover(
-                  xPos + 5.0F,
-                  yPos + 35.0F + this.getModesHeight() - 10.0F + 11.0F + 15.0F,
-                  this.getPickerWidth(),
-                  this.getPickerHeight() - 15.0F,
-                  mouseX,
-                  mouseY
-               )) {
-               float posX = xPos + 5.0F;
-               float posY = yPos + 35.0F + this.getModesHeight() - 10.0F + 11.0F;
-               float hsbX = posX + 6.0F;
-               float hsbY = posY + 68.0F;
-               float hsbW = this.getPickerWidth() - 12.0F;
-               float hsbH = 6.0F;
-               float alphaX = posX + 6.0F;
-               float alphaY = posY + 86.0F;
-               float alphaW = this.getPickerWidth() - 12.0F;
-               float alphaH = 6.0F;
-               float grX = posX + 5.0F;
-               float grY = posY + 20.0F;
-               float grH = 35.0F;
-               float grW = this.getPickerWidth() - 10.0F;
-               if (mouseButton == 0 && this.isHover(grX, grY, grW, grH, mouseX, mouseY)) {
-                  this.dragginggr = true;
-               }
-
-               if (mouseButton == 0 && this.isHover(hsbX, hsbY, hsbW, hsbH, mouseX, mouseY)) {
-                  this.dragginghsb = true;
-               }
-
-               if (mouseButton == 0 && this.isHover(alphaX, alphaY, alphaW, alphaH, mouseX, mouseY)) {
-                  this.draggingalpha = true;
-               }
+            if ((ClientColors.get.Mode.currentMode.equalsIgnoreCase("Colored") || ClientColors.get.Mode.currentMode.equalsIgnoreCase("TwoColored") || ClientColors.get.Mode.currentMode.equalsIgnoreCase("Fade")) && mouseButton == 0 && this.isHover(xPos + 5.0f, yPos + 35.0f + this.getModesHeight() - 10.0f + 11.0f + 15.0f, this.getPickerWidth(), this.getPickerHeight() - 15.0f, mouseX, mouseY)) {
+                float posX = xPos + 5.0f;
+                posY = yPos + 35.0f + this.getModesHeight() - 10.0f + 11.0f;
+                float hsbX = posX + 6.0f;
+                float hsbY = posY + 68.0f;
+                float hsbW = this.getPickerWidth() - 12.0f;
+                float hsbH = 6.0f;
+                float alphaX = posX + 6.0f;
+                alphaY = posY + 86.0f;
+                alphaW = this.getPickerWidth() - 12.0f;
+                alphaH = 6.0f;
+                grX = posX + 5.0f;
+                grY = posY + 20.0f;
+                grH = 35.0f;
+                grW = this.getPickerWidth() - 10.0f;
+                if (mouseButton == 0 && this.isHover(grX, grY, grW, grH, mouseX, mouseY)) {
+                    this.dragginggr = true;
+                }
+                if (mouseButton == 0 && this.isHover(hsbX, hsbY, hsbW, hsbH, mouseX, mouseY)) {
+                    this.dragginghsb = true;
+                }
+                if (mouseButton == 0 && this.isHover(alphaX, alphaY, alphaW, alphaH, mouseX, mouseY)) {
+                    this.draggingalpha = true;
+                }
             }
-
-            if ((ClientColors.get.Mode.currentMode.equalsIgnoreCase("TwoColored") || ClientColors.get.Mode.currentMode.equalsIgnoreCase("Fade"))
-               && mouseButton == 0
-               && this.isHover(
-                  this.x + 5.0F,
-                  yPos + 35.0F + this.getModesHeight() - 10.0F + 11.0F + 15.0F + 11.0F + this.getPickerHeight(),
-                  this.getPickerWidth(),
-                  this.getPickerHeight() - 15.0F,
-                  mouseX,
-                  mouseY
-               )) {
-               float posXx = xPos + 5.0F;
-               float posYx = yPos + 35.0F + this.getModesHeight() - 10.0F + 11.0F + 11.0F + this.getPickerHeight();
-               float hsbXx = posXx + 6.0F;
-               float hsbYx = posYx + 68.0F;
-               float hsbWx = this.getPickerWidth() - 12.0F;
-               float hsbHx = 6.0F;
-               float alphaXx = posXx + 6.0F;
-               float alphaYx = posYx + 86.0F;
-               float alphaWx = this.getPickerWidth() - 12.0F;
-               float alphaHx = 6.0F;
-               float grXx = posXx + 5.0F;
-               float grYx = posYx + 20.0F;
-               float grHx = 35.0F;
-               float grWx = this.getPickerWidth() - 10.0F;
-               if (mouseButton == 0 && this.isHover(grXx, grYx, grWx, grHx, mouseX, mouseY)) {
-                  this.dragginggrs = true;
-               }
-
-               if (mouseButton == 0 && this.isHover(hsbXx, hsbYx, hsbWx, hsbHx, mouseX, mouseY)) {
-                  this.dragginghsbs = true;
-               }
-
-               if (mouseButton == 0 && this.isHover(alphaXx, alphaYx, alphaWx, alphaHx, mouseX, mouseY)) {
-                  this.draggingalphas = true;
-               }
+            if ((ClientColors.get.Mode.currentMode.equalsIgnoreCase("TwoColored") || ClientColors.get.Mode.currentMode.equalsIgnoreCase("Fade")) && mouseButton == 0 && this.isHover(this.x + 5.0f, yPos + 35.0f + this.getModesHeight() - 10.0f + 11.0f + 15.0f + 11.0f + this.getPickerHeight(), this.getPickerWidth(), this.getPickerHeight() - 15.0f, mouseX, mouseY)) {
+                float posX = xPos + 5.0f;
+                posY = yPos + 35.0f + this.getModesHeight() - 10.0f + 11.0f + 11.0f + this.getPickerHeight();
+                float hsbX = posX + 6.0f;
+                float hsbY = posY + 68.0f;
+                float hsbW = this.getPickerWidth() - 12.0f;
+                float hsbH = 6.0f;
+                float alphaX = posX + 6.0f;
+                alphaY = posY + 86.0f;
+                alphaW = this.getPickerWidth() - 12.0f;
+                alphaH = 6.0f;
+                grX = posX + 5.0f;
+                grY = posY + 20.0f;
+                grH = 35.0f;
+                grW = this.getPickerWidth() - 10.0f;
+                if (mouseButton == 0 && this.isHover(grX, grY, grW, grH, mouseX, mouseY)) {
+                    this.dragginggrs = true;
+                }
+                if (mouseButton == 0 && this.isHover(hsbX, hsbY, hsbW, hsbH, mouseX, mouseY)) {
+                    this.dragginghsbs = true;
+                }
+                if (mouseButton == 0 && this.isHover(alphaX, alphaY, alphaW, alphaH, mouseX, mouseY)) {
+                    this.draggingalphas = true;
+                }
             }
-         }
-      }
+        }
 
-      public float getModesWidth() {
-         return this.getWidth() - 10.0F;
-      }
+        public float getModesWidth() {
+            return this.getWidth() - 10.0f;
+        }
 
-      public float getPresetsWidth() {
-         return this.getWidth() - 10.0F;
-      }
+        public float getPresetsWidth() {
+            return this.getWidth() - 10.0f;
+        }
 
-      public float getPickerWidth() {
-         return this.getWidth() - 10.0F;
-      }
+        public float getPickerWidth() {
+            return this.getWidth() - 10.0f;
+        }
 
-      public void mouseReleased(int mouseX, int mouseY, int mouseButton) {
-         if (mouseButton == 0) {
+        public void mouseReleased(int mouseX, int mouseY, int mouseButton) {
+            if (mouseButton == 0) {
+                this.dragginggr = false;
+                this.dragginghsb = false;
+                this.draggingalpha = false;
+                this.dragginggrs = false;
+                this.dragginghsbs = false;
+                this.draggingalphas = false;
+                this.dragging = false;
+            }
+        }
+
+        public void keyTyped(char typedChar, int keyCode) {
+        }
+
+        public void initGui() {
+            this.hover = false;
+        }
+
+        public void onGuiClosed() {
+            this.hover = false;
+            this.draggingalpha = false;
             this.dragginggr = false;
             this.dragginghsb = false;
-            this.draggingalpha = false;
+            this.draggingalphas = false;
             this.dragginggrs = false;
             this.dragginghsbs = false;
-            this.draggingalphas = false;
             this.dragging = false;
-         }
-      }
-
-      public void keyTyped(char typedChar, int keyCode) {
-      }
-
-      public void initGui() {
-         this.hover = false;
-      }
-
-      public void onGuiClosed() {
-         this.hover = false;
-         this.draggingalpha = false;
-         this.dragginggr = false;
-         this.dragginghsb = false;
-         this.draggingalphas = false;
-         this.dragginggrs = false;
-         this.dragginghsbs = false;
-         this.dragging = false;
-      }
-
-      public ClientColorsHud() {
-         this.xRepos = new AnimationUtils(this.x, this.x, 0.15F);
-         this.yRepos = new AnimationUtils(this.y, this.y, 0.15F);
-         this.rotate = new AnimationUtils(0.0F, 0.0F, 0.125F);
-         this.dragging = false;
-         this.dragX = 0.0F;
-         this.dragY = 0.0F;
-         this.open = false;
-         this.soundTicker = new TimerHelper();
-         this.offsetX = -1.2312312E8F;
-         this.offsetY = -1.2312312E8F;
-         this.offsetX2 = -1.2312312E8F;
-         this.offsetX3 = -1.2312312E8F;
-         this.dragginggr = false;
-         this.dragginghsb = false;
-         this.draggingalpha = false;
-         this.offsetXs = -1.2312312E8F;
-         this.offsetYs = -1.2312312E8F;
-         this.offsetX2s = -1.2312312E8F;
-         this.offsetX3s = -1.2312312E8F;
-         this.dragginggrs = false;
-         this.dragginghsbs = false;
-         this.draggingalphas = false;
-      }
-   }
-
-   static enum PresetColors {
-      WHITE(-1, -1, false, "White"),
-      PINK(ColorUtils.getColor(255, 115, 220), ColorUtils.getColor(255, 0, 190), true, "Pink"),
-      WINTER(ColorUtils.getColor(165, 235, 255), ColorUtils.getColor(240, 155, 255), true, "Winter"),
-      BLOODY(ColorUtils.getColor(255, 0, 0), ColorUtils.getColor(135, 0, 0), true, "Bloody"),
-      HERO(ColorUtils.getColor(255, 0, 0), ColorUtils.getColor(0, 255, 0), true, "Hero"),
-      EARLBLUE(ColorUtils.getColor(50, 100, 50), ColorUtils.getColor(0, 0, 255), true, "EarlBlue"),
-      FLAME(ColorUtils.getColor(255, 95, 0), ColorUtils.getColor(255, 195, 0), true, "Flame"),
-      NEON(ColorUtils.getColor(160, 100, 255), ColorUtils.getColor(75, 60, 185), true, "Neon"),
-      STELL(ColorUtils.getColor(118, 114, 232), ColorUtils.getColor(59, 59, 122), true, "Stell"),
-      GRAY(ColorUtils.getColor(90, 92, 112), ColorUtils.getColor(90, 92, 112), false, "Gray"),
-      NIGHTFALL(ColorUtils.getColor(115, 0, 255), ColorUtils.getColor(255, 80, 0), true, "NightFall"),
-      BROWN(ColorUtils.getColor(87, 43, 0), ColorUtils.getColor(87, 43, 0), false, "Brown"),
-      BREATH(ColorUtils.getColor(120, 255, 227), ColorUtils.getColor(0, 186, 255), true, "Breath"),
-      OCEAN(ColorUtils.getColor(251, 255, 38), ColorUtils.getColor(95, 255, 38), true, "Ocean"),
-      BLUESKY(ColorUtils.getColor(60, 205, 255), ColorUtils.getColor(60, 205, 255), false, "BlueSky"),
-      CANDY(ColorUtils.getColor(255, 117, 252), ColorUtils.getColor(255, 45, 45), true, "Candy"),
-      CURRANT(ColorUtils.getColor(0, 40, 255), ColorUtils.getColor(255, 0, 70), true, "Currant"),
-      AZURE(ColorUtils.getColor(100, 255, 100), ColorUtils.getColor(100, 255, 100), false, "Azure"),
-      DAWN(ColorUtils.getColor(255, 80, 0), ColorUtils.getColor(31, 37, 111), true, "Dawn"),
-      SWAMP(ColorUtils.getColor(77, 142, 132), ColorUtils.getColor(0, 235, 255), true, "Swamp");
-
-      boolean twoColored;
-      int color1;
-      int color2;
-      String name;
-
-      private PresetColors(int color1, int color2, boolean twoColored, String name) {
-         this.color1 = color1;
-         this.color2 = color2;
-         this.twoColored = twoColored;
-         this.name = name;
-      }
-   }
+        }
+    }
 }
+

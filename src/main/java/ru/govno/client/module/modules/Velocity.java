@@ -5,8 +5,9 @@ import net.minecraft.block.BlockBasePressurePlate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
-import net.minecraft.network.play.client.CPacketPlayer;
 import net.minecraft.network.play.client.CPacketPlayerDigging;
+import net.minecraft.network.play.client.CPacketPlayer.Position;
+import net.minecraft.network.play.client.CPacketPlayerDigging.Action;
 import net.minecraft.network.play.server.SPacketEntityVelocity;
 import net.minecraft.network.play.server.SPacketPlayerPosLook;
 import net.minecraft.util.EnumFacing;
@@ -132,13 +133,13 @@ public class Velocity extends Module {
    }
 
    private static void sendAAC520_BP() {
-      mc.getConnection().sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Double.MAX_VALUE, Minecraft.player.posZ, true));
+      mc.getConnection().sendPacket(new Position(Minecraft.player.posX, Double.MAX_VALUE, Minecraft.player.posZ, true));
    }
 
    private static void sendGrim_BP() {
       BlockPos pos = new BlockPos(Minecraft.player.getPositionVector());
-      mc.getConnection().sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.START_DESTROY_BLOCK, pos, EnumFacing.UP));
-      mc.getConnection().sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.STOP_DESTROY_BLOCK, pos, EnumFacing.UP));
+      mc.getConnection().sendPacket(new CPacketPlayerDigging(Action.START_DESTROY_BLOCK, pos, EnumFacing.UP));
+      mc.getConnection().sendPacket(new CPacketPlayerDigging(Action.STOP_DESTROY_BLOCK, pos, EnumFacing.UP));
    }
 
    @EventTarget
@@ -181,7 +182,7 @@ public class Velocity extends Module {
          boolean abuseMoveBoost = mode.equalsIgnoreCase("MoveBoost");
          boolean abuseMoveStationary = mode.equalsIgnoreCase("Stationary");
          boolean doCancelTrans = mode.equalsIgnoreCase("GrimAc");
-         boolean abuseAAC520 = mode.equalsIgnoreCase("Stationary");
+         boolean abuseAAC520 = mode.equalsIgnoreCase("AAC5.2.0");
          lastVelocityMotion = velocityMotion;
          canMoveBoostAbuse = abuseMoveBoost
             && getVelocitySpeed(velocityMotion) > 0.026
@@ -300,7 +301,7 @@ public class Velocity extends Module {
          && velocityx.getEntityID() == Minecraft.player.getEntityId()
          && isGrim()
          && mc.world.getCollisionBoxes(Minecraft.player, Minecraft.player.getEntityBoundingBox().addExpandXZ(0.15)).isEmpty()) {
-         if (cancelTransactionCounter > -5 || this.RANDOM.nextInt(100) > (int)this.currentFloatValue("IgnoreKnockChance")) {
+         if (cancelTransactionCounter > -5 || this.RANDOM.nextInt(100) > this.IgnoreKnockChance.getInt()) {
             stopGrim = true;
             return;
          }

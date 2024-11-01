@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockLiquid;
 import net.minecraft.block.BlockOre;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
@@ -28,15 +27,19 @@ import net.minecraft.item.ItemLingeringPotion;
 import net.minecraft.item.ItemPickaxe;
 import net.minecraft.item.ItemSplashPotion;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.client.CPacketAnimation;
 import net.minecraft.network.play.client.CPacketPlayerDigging;
 import net.minecraft.network.play.client.CPacketPlayerTryUseItemOnBlock;
+import net.minecraft.network.play.client.CPacketPlayerDigging.Action;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.RayTraceResult.Type;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.BossInfo;
 import org.lwjgl.input.Mouse;
@@ -58,6 +61,7 @@ import ru.govno.client.utils.Render.RenderUtils;
 
 public class PlayerHelper extends Module {
    public static PlayerHelper get;
+   public BoolSettings AbsorptionFix;
    public BoolSettings PearlBlockThrow;
    public BoolSettings AutoTool;
    public BoolSettings ToolSwapsInInv;
@@ -79,7 +83,6 @@ public class PlayerHelper extends Module {
    public BoolSettings ChorusUseCooldown;
    public BoolSettings CooldownsCheckKT;
    public FloatSettings MineSkeepValue;
-   public FloatSettings SkipMineMs;
    public FloatSettings AppleTimeWait;
    public FloatSettings PearlTimeWait;
    public FloatSettings ChorusUseWait;
@@ -106,10 +109,11 @@ public class PlayerHelper extends Module {
    public static BlockPos breakPos = null;
    boolean runPacket = false;
    float breakTicks = 0.0F;
-   double lastBreakTime = 0.0;
    boolean isStartPacket;
    double progressPacket;
    int startSlot = -1;
+   ItemStack tempStackPacketMine;
+   boolean tempSetAndResetSlot;
    private final AnimationUtils alphaSelectPC = new AnimationUtils(0.0F, 0.0F, 0.1F);
    private final AnimationUtils progressingSelect = new AnimationUtils(0.0F, 0.0F, 0.115F);
    BlockPos posRender = breakPos;
@@ -117,16 +121,22 @@ public class PlayerHelper extends Module {
    public PlayerHelper() {
       super("PlayerHelper", 0, Module.Category.PLAYER);
       get = this;
+      this.settings.add(this.AbsorptionFix = new BoolSettings("AbsorptionFix", true, this));
       this.settings.add(this.PearlBlockThrow = new BoolSettings("PearlBlockThrow", true, this));
       this.settings.add(this.AutoTool = new BoolSettings("AutoTool", true, this));
-      this.settings.add(this.ToolSwapsInInv = new BoolSettings("ToolSwapsInInv", true, this, () -> this.AutoTool.getBool()));
-      this.settings.add(this.SpeedMine = new BoolSettings("SpeedMine", true, this));
+      this.settings.add(this.ToolSwapsInInv = new BoolSettings("ToolSwapsInInv", false, this, () -> this.AutoTool.getBool()));
+      this.settings.add(this.SpeedMine = new BoolSettings("SpeedMine", false, this));
       this.settings
          .add(this.MineMode = new ModeSettings("MineMode", "Matrix", this, new String[]{"Matrix", "Custom", "Packet"}, () -> this.SpeedMine.getBool()));
       this.settings
          .add(
             this.MineSkeepValue = new FloatSettings(
-               "MineSkeepValue", 0.5F, 1.0F, 0.0F, this, () -> this.MineMode.currentMode.equalsIgnoreCase("Custom") && this.SpeedMine.getBool()
+               "MineSkeepValue",
+               0.5F,
+               1.0F,
+               0.0F,
+               this,
+               () -> (this.MineMode.currentMode.equalsIgnoreCase("Custom") || this.MineMode.currentMode.equalsIgnoreCase("Packet")) && this.SpeedMine.getBool()
             )
          );
       this.settings
@@ -138,12 +148,6 @@ public class PlayerHelper extends Module {
       this.settings
          .add(
             this.MineHaste = new BoolSettings("MineHaste", true, this, () -> this.MineMode.currentMode.equalsIgnoreCase("Custom") && this.SpeedMine.getBool())
-         );
-      this.settings
-         .add(
-            this.SkipMineMs = new FloatSettings(
-               "SkipMineMs", 250.0F, 1000.0F, 0.0F, this, () -> this.MineMode.currentMode.equalsIgnoreCase("Packet") && this.SpeedMine.getBool()
-            )
          );
       this.settings
          .add(
@@ -218,6 +222,14 @@ public class PlayerHelper extends Module {
 
    @Override
    public void onUpdate() {
+      if (this.AbsorptionFix.getBool()
+         && Minecraft.player != null
+         && !Minecraft.player.isPotionActive(MobEffects.ABSORPTION)
+         && !Minecraft.player.isPotionActive(MobEffects.REGENERATION)
+         && Minecraft.player.getAbsorptionAmount() > 0.0F) {
+         Minecraft.player.setAbsorptionAmount(0.0F);
+      }
+
       if (checkPearl || checkApple || checkChorus) {
          if (!canCooldown() || !this.AppleEatCooldown.getBool() && !this.PearlThrowCooldown.getBool() && !this.ChorusUseCooldown.getBool()) {
             checkApple = false;
@@ -342,8 +354,16 @@ public class PlayerHelper extends Module {
          }
       }
 
-      if (this.AutoTool.getBool() && (!this.SpeedMine.getBool() || !this.MineMode.currentMode.equalsIgnoreCase("Packet"))) {
-         boolean isBreak = Mouse.isButtonDown(0) || currentBlock != null;
+      if (this.AutoTool.getBool()) {
+         boolean packetMine = breakPos != null && (!this.PacketMineSilentSlot.getBool() || this.isStartPacket || this.tempSetAndResetSlot);
+         this.tempSetAndResetSlot = false;
+         boolean isBreak = Mouse.isButtonDown(0) && (!this.SpeedMine.getBool() || !this.MineMode.currentMode.equalsIgnoreCase("Packet"))
+            || currentBlock != null
+            || packetMine;
+         if (packetMine && breakPos != null) {
+            currentBlock = breakPos;
+         }
+
          if (isBreak) {
             this.itemBacked = false;
             int bestSlot = -228;
@@ -373,6 +393,7 @@ public class PlayerHelper extends Module {
             }
 
             if (bestSlot != -228) {
+               this.tempStackPacketMine = Minecraft.player.inventory.getStackInSlot(bestSlot);
                equip(bestSlot, false);
                if (bestSlot > 8) {
                   lastSlot = bestSlot;
@@ -394,6 +415,10 @@ public class PlayerHelper extends Module {
 
                equip(lastSlot, true);
                this.itemBacked = true;
+            }
+
+            if (!this.PacketMineSilentSlot.getBool()) {
+               this.tempStackPacketMine = null;
             }
 
             lastSlot = Minecraft.player.inventory.currentItem;
@@ -428,7 +453,7 @@ public class PlayerHelper extends Module {
                this.runPacketBreak(pos);
             }
 
-            this.packetMine((float)(this.SkipMineMs.getInt() - 50));
+            this.packetMine(this.MineSkeepValue.getFloat());
          }
       }
    }
@@ -453,7 +478,7 @@ public class PlayerHelper extends Module {
                true,
                false
             );
-         if (rayTraceResult == null || rayTraceResult.typeOfHit == RayTraceResult.Type.BLOCK && rayTraceResult.getBlockPos().equals(pos)) {
+         if (rayTraceResult == null || rayTraceResult.typeOfHit == Type.BLOCK && rayTraceResult.getBlockPos().equals(pos)) {
             return facing;
          }
       }
@@ -476,8 +501,8 @@ public class PlayerHelper extends Module {
 
    public double blockBrokenTime(BlockPos pos, ItemStack tool) {
       if (pos != null && tool != null) {
-         IBlockState blockMaterial = mc.world.getBlockState(pos);
-         float damageTicks = this.blockBreakSpeed(blockMaterial, tool) / blockMaterial.getBlockHardness(mc.world, pos) / 40.0F;
+         IBlockState state = mc.world.getBlockState(pos);
+         float damageTicks = this.blockBreakSpeed(state, tool) / state.getBlockHardness(mc.world, pos) / 30.0F;
          return Math.ceil(1.0 / (double)damageTicks) * 50.0;
       } else {
          return 0.0;
@@ -489,7 +514,11 @@ public class PlayerHelper extends Module {
    }
 
    double getProggress(double ms, BlockPos pos, ItemStack stack) {
-      return pos != null && stack != null ? MathUtils.clamp(ms / this.blockBrokenTime(pos, stack), 0.0, 1.0) : 0.0;
+      return MathUtils.clamp(ms / this.blockBrokenTime(pos, stack), 0.0, 1.0);
+   }
+
+   double getProggress(double ms, double brokenTime) {
+      return MathUtils.clamp(ms / brokenTime, 0.0, 1.0);
    }
 
    ItemStack getBestStack(BlockPos pos, boolean invUse) {
@@ -536,11 +565,14 @@ public class PlayerHelper extends Module {
       return -1;
    }
 
-   void packetMine(float skipMs) {
+   void packetMine(float skipProgress) {
       if (breakPos != null) {
+         mc.playerController.curBlockDamageMP = 0.0F;
+         mc.playerController.isHittingBlock = false;
          if (Minecraft.player.isSneaking() && !breakPos.equals(BlockUtils.getEntityBlockPos(this.getMe()).down())
-            || Minecraft.player.getDistanceAtEye((double)breakPos.getX() + 0.5, (double)breakPos.getY() + 0.5, (double)breakPos.getZ() + 0.5) > 5.46) {
+            || Minecraft.player.getDistanceAtEye((double)breakPos.getX() + 0.5, (double)breakPos.getY() + 0.5, (double)breakPos.getZ() + 0.5) > 5.5) {
             this.isStartPacket = false;
+            mc.getConnection().sendPacket(new CPacketPlayerDigging(Action.ABORT_DESTROY_BLOCK, breakPos, EnumFacing.DOWN));
             breakPos = null;
             return;
          }
@@ -551,112 +583,77 @@ public class PlayerHelper extends Module {
             this.isStartPacket = true;
          }
 
-         boolean invUse = this.ToolSwapsInInv.getBool();
-         ItemStack stack = this.AutoTool.getBool() ? this.getBestStack(breakPos, invUse) : Minecraft.player.getHeldItemMainhand();
-         double progress = this.progressPacket = this.getProggress((double)(this.breakTicks * 50.0F + skipMs), breakPos, stack);
-         this.breakTicks = this.breakTicks
-            + (
-               Minecraft.player.onGround
-                     && !(mc.world.getBlockState(BlockUtils.getEntityBlockPos(this.getMe()).up()).getBlock() instanceof BlockLiquid)
-                     && !Minecraft.player.isInWeb
-                  ? 1.0F
-                  : 0.2F
-            );
-         int slot = this.getSlotForStack(stack, invUse);
-         int handSlot = Minecraft.player.inventory.currentItem;
-         if (!this.PacketMineSilentSlot.getBool() && this.startSlot != -1 && slot != -1 && slot < 9) {
-            Minecraft.player.inventory.currentItem = slot;
+         ItemStack stack = this.tempStackPacketMine != null ? this.tempStackPacketMine : Minecraft.player.getHeldItemMainhand();
+         double brokenTime = (this.blockBrokenTime(breakPos, stack) + 100.0) / 50.0;
+         double progress = this.progressPacket = this.getProggress((double)this.breakTicks, brokenTime);
+         float slowerMine = 1.0F;
+         if (!this.NoSlowingBreak.getBool() || !this.NoSlowBreakIf.currentMode.equalsIgnoreCase("Anywhere")) {
+            if (Minecraft.player.isInsideOfMaterial(Material.WATER)
+               && !EnchantmentHelper.getAquaAffinityModifier(Minecraft.player)
+               && (
+                  !this.NoSlowingBreak.getBool()
+                     || !this.NoSlowBreakIf.currentMode.equalsIgnoreCase("Anywhere") && !this.NoSlowBreakIf.currentMode.equalsIgnoreCase("InLiquid")
+               )) {
+               slowerMine /= 5.0F;
+            }
+
+            if (!Minecraft.player.onGround
+               && (
+                  !this.NoSlowingBreak.getBool()
+                     || !this.NoSlowBreakIf.currentMode.equalsIgnoreCase("Anywhere") && !this.NoSlowBreakIf.currentMode.equalsIgnoreCase("InAir")
+               )) {
+               slowerMine /= 5.0F;
+            }
+         }
+
+         this.breakTicks += slowerMine;
+         if (skipProgress > 0.0F
+            && (skipProgress > 1.0F ? (skipProgress = 1.0F) : skipProgress) <= 1.0F
+            && (double)this.breakTicks / brokenTime < (double)skipProgress) {
+            this.breakTicks = (float)(brokenTime * (double)skipProgress);
          }
 
          if (this.isStartPacket) {
-            if (this.startSlot == -1 && slot < 9 && !this.PacketMineSilentSlot.getBool()) {
-               this.startSlot = Minecraft.player.inventory.currentItem;
-            }
-
-            if (slot != -1 && (handSlot != slot || slot > 8)) {
-               if (slot > 8) {
-                  this.startSlot = slot;
-                  mc.playerController.windowClick(0, slot, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player);
-               } else {
-                  Minecraft.player.inventory.currentItem = slot;
-                  mc.playerController.syncCurrentPlayItem();
-               }
-            }
-
+            this.startSlot = Minecraft.player.inventory.currentItem;
             EnumFacing face = EnumFacing.UP;
             if (mc.objectMouseOver != null && mc.objectMouseOver.sideHit != null) {
                face = mc.objectMouseOver.sideHit;
             }
 
-            mc.getConnection().sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.START_DESTROY_BLOCK, breakPos, face));
-            if (slot != -1 && (handSlot != slot || slot > 8)) {
-               if (slot > 8) {
-                  if (this.PacketMineSilentSlot.getBool()) {
-                     mc.playerController.windowClickMemory(0, slot, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player, 50);
-                  }
-               } else {
-                  if (this.PacketMineSilentSlot.getBool()) {
-                     Minecraft.player.inventory.currentItem = handSlot;
-                  }
-
-                  mc.playerController.syncCurrentPlayItem();
-               }
-            }
-
+            mc.getConnection().sendPacket(new CPacketPlayerDigging(Action.START_DESTROY_BLOCK, breakPos, face));
             this.isStartPacket = false;
          }
 
+         if (!this.tempSetAndResetSlot) {
+            double predictProgress = this.getProggress((double)(this.breakTicks + slowerMine), brokenTime);
+            if (predictProgress == 1.0) {
+               this.tempSetAndResetSlot = true;
+            }
+         }
+
          if (progress == 1.0) {
-            if (slot != -1 && (handSlot != slot || slot > 8)) {
-               if (slot > 8) {
-                  if (!this.PacketMineSilentSlot.getBool()) {
-                     mc.playerController.windowClick(0, slot, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player);
-                  }
-               } else {
-                  Minecraft.player.inventory.currentItem = slot;
-                  mc.playerController.syncCurrentPlayItem();
-               }
-            }
-
-            EnumFacing facex = EnumFacing.UP;
+            EnumFacing face = EnumFacing.UP;
             if (mc.objectMouseOver != null && mc.objectMouseOver.sideHit != null) {
-               facex = mc.objectMouseOver.sideHit;
+               face = mc.objectMouseOver.sideHit;
             }
 
-            mc.getConnection().sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.STOP_DESTROY_BLOCK, breakPos, facex));
-            if (slot != -1 && (handSlot != slot || slot > 8)) {
-               if (slot > 8) {
-                  mc.playerController.windowClickMemory(0, slot, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player, 50);
-               } else {
-                  if (this.PacketMineSilentSlot.getBool()) {
-                     Minecraft.player.inventory.currentItem = handSlot;
-                  }
-
-                  mc.playerController.syncCurrentPlayItem();
-               }
-            }
-
-            if (this.startSlot > 8) {
-               mc.playerController.windowClickMemory(0, this.startSlot, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player, 50);
-            }
-
-            if (!this.PacketMineSilentSlot.getBool() && this.startSlot != -1 && this.startSlot < 9) {
-               Minecraft.player.inventory.currentItem = this.startSlot;
-               mc.playerController.syncCurrentPlayItem();
-               this.startSlot = -1;
-            }
-
+            mc.getConnection().sendPacket(new CPacketPlayerDigging(Action.STOP_DESTROY_BLOCK, breakPos, face));
+            Minecraft.player.swingArm();
             breakPos = null;
+            this.tempStackPacketMine = null;
+         } else {
+            mc.getConnection().sendPacket(new CPacketAnimation(EnumHand.MAIN_HAND));
          }
       } else {
          mc.gameSettings.keyBindAttack.pressed = Mouse.isButtonDown(0) && mc.currentScreen == null;
          this.progressPacket = 0.0;
          this.breakTicks = 0.0F;
          this.isStartPacket = true;
+         this.tempSetAndResetSlot = false;
       }
    }
 
-   private final void drawBlockPos(AxisAlignedBB aabb, int color) {
+   private void drawBlockPos(AxisAlignedBB aabb, int color) {
       int c1 = ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) / 2.6F);
       int c2 = ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) / 7.2F);
       int c3 = ColorUtils.swapAlpha(color, (float)ColorUtils.getAlphaFromColor(color) / 15.0F);
@@ -827,7 +824,7 @@ public class PlayerHelper extends Module {
                         .values()
                         .stream()
                         .map(BossInfo::getName)
-                        .map(ITextComponent::getFormattedText)
+                        .<String>map(ITextComponent::getFormattedText)
                         .map(String::toLowerCase)
                         .filter(name -> name.contains("pvp") || name.contains("пвп") || name.contains("сек."))
                         .filter(Objects::nonNull)

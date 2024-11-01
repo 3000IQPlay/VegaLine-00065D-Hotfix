@@ -4,7 +4,7 @@
             uniform vec2 texelSize, direction;
             uniform vec3 color1, color2, color3, color4, color5;
             uniform bool avoidTexture;
-            uniform float exposure, radius, time;
+            uniform float exposure, radius;
             uniform float weights[64];
                
             #define offset direction * texelSize
@@ -31,7 +31,7 @@
                 vec3 color5 = color5;
                
                 vec3 color;
-                float t = mod(theta + time, 2.0 * 3.1415926535897932384626433832795) / (2.0 * 3.1415926535897932384626433832795);
+                float t = mod(theta, 2.0 * 3.1415926535897932384626433832795) / (2.0 * 3.1415926535897932384626433832795);
                 if (t < 0.2) {
                     color = mix(color1, color2, smoothstep(0.0, 0.2, t));
                 } else if (t < 0.4) {

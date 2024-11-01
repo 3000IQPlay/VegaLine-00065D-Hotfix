@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.gui.GuiBossOverlay;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -17,8 +18,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemAir;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.client.CPacketConfirmTransaction;
-import net.minecraft.network.play.client.CPacketPlayer;
 import net.minecraft.network.play.client.CPacketPlayerTryUseItem;
+import net.minecraft.network.play.client.CPacketPlayer.Rotation;
 import net.minecraft.network.play.server.SPacketEntityStatus;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
@@ -29,6 +30,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.BossInfo;
 import org.lwjgl.input.Mouse;
+import ru.govno.client.Client;
 import ru.govno.client.event.EventTarget;
 import ru.govno.client.event.events.EventMovementInput;
 import ru.govno.client.event.events.EventPlayerMotionUpdate;
@@ -50,7 +52,7 @@ public class PotionThrower extends Module {
    FloatSettings TicksFromSpawn;
    FloatSettings MinHealth;
    BoolSettings DisableOnThrow;
-   BoolSettings OnlyInPVP;
+   BoolSettings InPVPTime;
    BoolSettings OnSnackFloorSwing;
    BoolSettings RefillHotbar;
    BoolSettings HealthPotions;
@@ -67,12 +69,12 @@ public class PotionThrower extends Module {
       super("PotionThrower", 0, Module.Category.COMBAT);
       this.settings.add(this.TicksFromSpawn = new FloatSettings("TicksFromSpawn", 20.0F, 100.0F, 0.0F, this));
       this.settings.add(this.DisableOnThrow = new BoolSettings("DisableOnThrow", false, this));
-      this.settings.add(this.OnlyInPVP = new BoolSettings("OnlyInPVP", false, this));
+      this.settings.add(this.InPVPTime = new BoolSettings("InPVPMode", false, this));
       this.settings.add(this.OnSnackFloorSwing = new BoolSettings("OnSnackFloorSwing", false, this));
       this.settings.add(this.RefillHotbar = new BoolSettings("RefillHotbar", true, this));
       this.settings.add(this.HealthPotions = new BoolSettings("HealthPotions", true, this));
-      this.settings.add(this.MinHealth = new FloatSettings("MinHealth", 14.0F, 20.0F, 4.0F, this, () -> this.currentBooleanValue("HealthPotions")));
-      this.settings.add(this.RotateMoveDir = new BoolSettings("RotateMoveDir", true, this));
+      this.settings.add(this.MinHealth = new FloatSettings("MinHealth", 14.0F, 20.0F, 4.0F, this, () -> this.HealthPotions.getBool()));
+      this.settings.add(this.RotateMoveDir = new BoolSettings("RotateMoveDir", false, this));
       get = this;
    }
 
@@ -161,26 +163,16 @@ public class PotionThrower extends Module {
 
    private boolean inPvpTime() {
       return !GuiBossOverlay.mapBossInfos2.isEmpty()
-            && GuiBossOverlay.mapBossInfos2
-                  .values()
-                  .stream()
-                  .map(BossInfo::getName)
-                  .map(ITextComponent::getFormattedText)
-                  .map(String::toLowerCase)
-                  .filter(name -> name.contains("pvp") || name.contains("пвп") || name.contains("сек."))
-                  .filter(Objects::nonNull)
-                  .toList()
-                  .size()
-               != 0
-         || mc.world.getScoreboard() != null
-            && mc.world
-               .getScoreboard()
-               .getTeamNames()
-               .stream()
-               .map(String::toLowerCase)
-               .anyMatch(
-                  str -> List.of("терка", "боя", "противник", "пвп", "pvp", "режим").stream().map(String::toLowerCase).anyMatch(bad -> str.contains(bad))
-               );
+         && !GuiBossOverlay.mapBossInfos2
+            .values()
+            .stream()
+            .map(BossInfo::getName)
+            .<String>map(ITextComponent::getUnformattedText)
+            .map(String::toLowerCase)
+            .filter(name -> name.contains("pvp") || name.contains("пвп") || name.contains("сек."))
+            .filter(Objects::nonNull)
+            .toList()
+            .isEmpty();
    }
 
    private boolean canThrowing(int ticksAlive, List<PotionThrower.Potions> toThrow, float delay, boolean checkPvp, boolean onlySNP) {
@@ -202,8 +194,30 @@ public class PotionThrower extends Module {
          && (!mc.playerController.getIsHittingBlock() || !((double)mc.playerController.curBlockDamageMP > 0.5))
          && (!JesusSpeed.get.actived || !JesusSpeed.isSwimming && !JesusSpeed.isJesused)
          && (!Speed.get.actived || !Speed.snowGround || !Speed.snowGo)
-         && (!checkPvp || this.inPvpTime())
-         && (!onlySNP || Minecraft.player.isSneaking() && Minecraft.player.rotationPitch > 85.0F && Mouse.isButtonDown(0));
+         && (
+            !checkPvp && (!onlySNP || Minecraft.player.isSneaking() && Minecraft.player.rotationPitch > 80.0F && Mouse.isButtonDown(0))
+               || checkPvp
+                  && this.inPvpTime()
+                  && mc.world
+                     .playerEntities
+                     .stream()
+                     .anyMatch(
+                        player -> {
+                           if (player instanceof EntityOtherPlayerMP mp
+                              && mp.isEntityAlive()
+                              && mp != FakePlayer.fakePlayer
+                              && mp.getDistanceToEntity(Minecraft.player) < 10.0F
+                              && mp.canEntityBeSeen(Minecraft.player)
+                              && !Client.friendManager.isFriend(mp.getName())) {
+                              return true;
+                           }
+
+                           return false;
+                        }
+                     )
+               || !onlySNP
+               || Minecraft.player.isSneaking() && Minecraft.player.rotationPitch > 80.0F && Mouse.isButtonDown(0)
+         );
    }
 
    private boolean hasEmptySlotsInHotbar() {
@@ -231,7 +245,7 @@ public class PotionThrower extends Module {
 
       boolean reFill = this.RefillHotbar.getBool() && !Minecraft.player.isCreative();
       this.toThrowList = this.potsListToThrow(this.HealthPotions.getBool(), this.MinHealth.getFloat());
-      this.canThrow = this.canThrowing(this.TicksFromSpawn.getInt(), this.toThrowList, 400.0F, this.OnlyInPVP.getBool(), this.OnSnackFloorSwing.getBool());
+      this.canThrow = this.canThrowing(this.TicksFromSpawn.getInt(), this.toThrowList, 400.0F, this.InPVPTime.getBool(), this.OnSnackFloorSwing.getBool());
       if (this.callThrowPotions) {
          if (!this.toThrowList.isEmpty()) {
             this.setHead(null, this.rotate[0], this.rotate[1]);
@@ -295,6 +309,10 @@ public class PotionThrower extends Module {
       Minecraft.player.renderYawOffset = yaw;
       Minecraft.player.rotationPitchHead = pitch;
       HitAura.get.rotations = new float[]{yaw, pitch};
+      if (this.RotateMoveDir.getBool() && Minecraft.player.toCancelSprintTicks <= 1 && MathUtils.getDifferenceOf(Minecraft.player.rotationYaw, yaw) >= 45.0) {
+         Minecraft.player.toCancelSprintTicks = 2;
+      }
+
       if (event != null) {
          event.setYaw(yaw);
          event.setPitch(pitch);
@@ -375,7 +393,7 @@ public class PotionThrower extends Module {
             if (!Minecraft.player.isSneaking() || !(Minecraft.player.rotationPitch > 85.0F) || !Mouse.isButtonDown(0)) {
                if (this.firstThrow) {
                   if (Minecraft.player.onGround) {
-                     Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(this.rotate[0], this.rotate[1], event.onGround()));
+                     Minecraft.player.connection.sendPacket(new Rotation(this.rotate[0], this.rotate[1], event.onGround()));
                   }
 
                   this.firstThrow = false;

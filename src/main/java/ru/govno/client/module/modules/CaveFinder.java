@@ -7,40 +7,41 @@ import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
-public class CaveFinder extends Module {
-   public static CaveFinder get;
-   public static boolean findEnabled;
-   AnimationUtils darkerAlphaPC = new AnimationUtils(0.0F, 0.0F, 0.075F);
+public class CaveFinder
+extends Module {
+    public static CaveFinder get;
+    public static boolean findEnabled;
+    AnimationUtils darkerAlphaPC = new AnimationUtils(0.0f, 0.0f, 0.075f);
 
-   public CaveFinder() {
-      super("CaveFinder", 0, Module.Category.RENDER);
-      get = this;
-   }
+    public CaveFinder() {
+        super("CaveFinder", 0, Module.Category.RENDER);
+        get = this;
+    }
 
-   @Override
-   public void onToggled(boolean actived) {
-      this.darkerAlphaPC.setAnim(this.darkerAlphaPC.anim * 0.95F);
-      this.darkerAlphaPC.to = 1.0F;
-      super.onToggled(actived);
-   }
+    @Override
+    public void onToggled(boolean actived) {
+        this.darkerAlphaPC.setAnim(this.darkerAlphaPC.anim * 0.95f);
+        this.darkerAlphaPC.to = 1.0f;
+        super.onToggled(actived);
+    }
 
-   public void post2DDark(ScaledResolution sr) {
-      float alphaPC;
-      if ((alphaPC = this.darkerAlphaPC.getAnim()) != 1.0F && (double)alphaPC > 0.95) {
-         this.darkerAlphaPC.setAnim(1.0F);
-         this.darkerAlphaPC.to = 0.0F;
-         findEnabled = this.isActived();
-         mc.renderGlobal.loadRenderers();
-      }
-
-      if (this.darkerAlphaPC.to == 0.0F && alphaPC != 0.0F && (double)alphaPC < 0.05) {
-         this.darkerAlphaPC.setAnim(0.0F);
-      }
-
-      if (alphaPC != 0.0F) {
-         GL11.glDisable(2929);
-         RenderUtils.drawAlphedRect(0.0, 0.0, (double)sr.getScaledWidth(), (double)sr.getScaledHeight(), ColorUtils.getColor(10, 10, 10, 255.0F * alphaPC));
-         GL11.glEnable(2929);
-      }
-   }
+    public void post2DDark(ScaledResolution sr) {
+        float alphaPC = this.darkerAlphaPC.getAnim();
+        if (alphaPC != 1.0f && (double)alphaPC > 0.95) {
+            this.darkerAlphaPC.setAnim(1.0f);
+            this.darkerAlphaPC.to = 0.0f;
+            findEnabled = this.isActived();
+            CaveFinder.mc.renderGlobal.loadRenderers();
+        }
+        if (this.darkerAlphaPC.to == 0.0f && alphaPC != 0.0f && (double)alphaPC < 0.05) {
+            this.darkerAlphaPC.setAnim(0.0f);
+        }
+        if (alphaPC == 0.0f) {
+            return;
+        }
+        GL11.glDisable((int)2929);
+        RenderUtils.drawAlphedRect(0.0, 0.0, sr.getScaledWidth(), sr.getScaledHeight(), ColorUtils.getColor(10, 10, 10, 255.0f * alphaPC));
+        GL11.glEnable((int)2929);
+    }
 }
+

@@ -90,17 +90,19 @@ public class DashCubics extends Module {
       return tempPoses;
    }
 
-   private GenRBox findWhiteRBoxOnPos(BlockPos pos, Vec3d checkDstTo, double checkMinDST, double checkMaxDST) {
-      if (DashCubics.mc.world != null) {
+   private DashCubics.GenRBox findWhiteRBoxOnPos(BlockPos pos, Vec3d checkDstTo, double checkMinDST, double checkMaxDST) {
+      if (mc.world != null) {
          int attemts = 128;
+
          while (--attemts > 0) {
             Vec3d vec = new Vec3d(pos).addVector(this.RAND.nextDouble(), 0.0, this.RAND.nextDouble());
             double dst = vec.distanceTo(checkDstTo);
-            if (!(dst >= checkMinDST) || !(dst <= checkMaxDST)) continue;
-            attemts = 0;
-            return new GenRBox(vec, 16);
+            if (dst >= checkMinDST && dst <= checkMaxDST) {
+               return new DashCubics.GenRBox(vec, 16);
+            }
          }
       }
+
       return null;
    }
 
@@ -249,7 +251,7 @@ public class DashCubics extends Module {
       return mc.world
          .getLoadedEntityList()
          .stream()
-         .map(Entity::getPlayerOf)
+         .<EntityLivingBase>map(Entity::getPlayerOf)
          .filter(Objects::nonNull)
          .filter(Entity::isEntityAlive)
          .filter(base -> (double)base.getDistanceToEntity(entitySelf) <= maxDistanceFromSelf)

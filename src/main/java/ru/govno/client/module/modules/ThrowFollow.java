@@ -13,6 +13,7 @@ import net.minecraft.block.BlockLiquid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityEnderPearl;
 import net.minecraft.entity.player.EntityPlayer;
@@ -25,6 +26,7 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.RayTraceResult.Type;
 import org.lwjgl.opengl.GL11;
 import ru.govno.client.Client;
 import ru.govno.client.event.EventTarget;
@@ -34,24 +36,18 @@ import ru.govno.client.event.events.EventPlayerMotionUpdate;
 import ru.govno.client.event.events.EventRotationJump;
 import ru.govno.client.event.events.EventRotationStrafe;
 import ru.govno.client.module.Module;
-import ru.govno.client.module.modules.BowAimbot;
-import ru.govno.client.module.modules.ElytraBoost;
-import ru.govno.client.module.modules.Fly;
-import ru.govno.client.module.modules.HitAura;
-import ru.govno.client.module.modules.TargetHUD;
-import ru.govno.client.module.modules.WorldRender;
 import ru.govno.client.module.settings.BoolSettings;
 import ru.govno.client.module.settings.FloatSettings;
-import ru.govno.client.utils.Combat.RotationUtil;
 import ru.govno.client.utils.CrystalField;
+import ru.govno.client.utils.MusicHelper;
+import ru.govno.client.utils.Combat.RotationUtil;
 import ru.govno.client.utils.Math.MathUtils;
 import ru.govno.client.utils.Math.TimerHelper;
 import ru.govno.client.utils.Movement.MoveMeHelp;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
-public class ThrowFollow
-        extends Module {
+public class ThrowFollow extends Module {
    public static ThrowFollow get;
    public BoolSettings PearlFromInventory;
    public BoolSettings RotateMoveSide;
@@ -59,51 +55,88 @@ public class ThrowFollow
    public BoolSettings RenderMarkers;
    public FloatSettings AnyTargetRange;
    public FloatSettings MaxTpSpread;
-   private final List<TimedTarget> TIMED_TARGETS = new ArrayList<TimedTarget>();
-   private final List<EntityLivingBase> tempListEntities = new CopyOnWriteArrayList<EntityLivingBase>();
-   private final List<Vec3d> toThrowVectors = new ArrayList<Vec3d>();
-   private int runTicks;
+   private boolean wantToPlayTrajPop;
+   private long playTrajPopDelay;
+   private final TimerHelper playTrajPopWaiter = TimerHelper.TimerHelperReseted();
+   private final List<ThrowFollow.TimedTarget> TIMED_TARGETS = new ArrayList<>();
+   private final List<EntityLivingBase> tempListEntities = new CopyOnWriteArrayList<>();
+   private final List<Vec3d> toThrowVectors = new ArrayList<>();
+   public int runTicks;
    private float[] currentRot;
    private int slot;
-   private final List<TimedVec3d> markers = new ArrayList<TimedVec3d>();
+   private final List<ThrowFollow.TimedVec3d> markers = new ArrayList<>();
 
    public ThrowFollow() {
       super("ThrowFollow", 0, Module.Category.COMBAT);
-      this.PearlFromInventory = new BoolSettings("PearlFromInventory", true, this);
-      this.settings.add(this.PearlFromInventory);
-      this.AnyTargetRange = new FloatSettings("AnyTargetRange", 5.0f, 9.0f, 0.0f, this);
-      this.settings.add(this.AnyTargetRange);
-      this.MaxTpSpread = new FloatSettings("MaxTpSpread", 7.0f, 10.0f, 1.0f, this);
-      this.settings.add(this.MaxTpSpread);
-      this.RotateMoveSide = new BoolSettings("RotateMoveSide", false, this);
-      this.settings.add(this.RotateMoveSide);
-      this.LClickFollow = new BoolSettings("LClickFollow", false, this);
-      this.settings.add(this.LClickFollow);
-      this.RenderMarkers = new BoolSettings("RenderMarkers", true, this);
-      this.settings.add(this.RenderMarkers);
+      this.settings.add(this.PearlFromInventory = new BoolSettings("PearlFromInventory", true, this));
+      this.settings.add(this.AnyTargetRange = new FloatSettings("AnyTargetRange", 5.0F, 9.0F, 0.0F, this));
+      this.settings.add(this.MaxTpSpread = new FloatSettings("MaxTpSpread", 7.0F, 10.0F, 1.0F, this));
+      this.settings.add(this.RotateMoveSide = new BoolSettings("RotateMoveSide", false, this));
+      this.settings.add(this.LClickFollow = new BoolSettings("LClickFollow", false, this));
+      this.settings.add(this.RenderMarkers = new BoolSettings("RenderMarkers", true, this));
       get = this;
    }
 
+   private void playTrajOpn() {
+      MusicHelper.playSound("trajopn.wav", 0.3F);
+   }
+
+   private void playTrajNew() {
+      MusicHelper.playSound("trajnew.wav", 0.15F);
+   }
+
+   private void playTrajPop(long wait) {
+      this.wantToPlayTrajPop = true;
+      this.playTrajPopDelay = wait;
+      this.playTrajPopWaiter.reset();
+   }
+
+   private void playTrajPopUpdater() {
+      if (this.wantToPlayTrajPop && this.playTrajPopWaiter.hasReached((double)this.playTrajPopDelay)) {
+         MusicHelper.playSound("trajpop.wav", 0.25F);
+         this.wantToPlayTrajPop = false;
+      }
+   }
+
    private Vector4d virtPearlFlyingDetachPos(double x, double y, double z, double mx, double my, double mz, boolean checkSelfBox) {
-      for (int attempt = 0; attempt < 100; ++attempt) {
-         AxisAlignedBB aabb;
+      int attempt = 0;
+
+      while (attempt < 100) {
          Vec3d prevPos = new Vec3d(x, y, z);
          x += mx;
+         y += my;
          z += mz;
-         if ((y += my) < 1.0) break;
-         double slowingFactor = ThrowFollow.mc.world.getBlockState(new BlockPos(x, y, z)).getBlock() instanceof BlockLiquid ? 0.8 : 0.99;
-         mx *= slowingFactor;
-         my *= slowingFactor;
-         mz *= slowingFactor;
-         my -= 0.03;
-         Vec3d pos = new Vec3d(x, y, z);
-         RayTraceResult rayTrace = ThrowFollow.mc.world.rayTraceBlocks(prevPos, pos, false, false, true);
-         if (rayTrace != null && (attempt > 1 && rayTrace.typeOfHit.equals((Object)RayTraceResult.Type.ENTITY) || rayTrace.typeOfHit.equals((Object)RayTraceResult.Type.BLOCK))) {
-            return new Vector4d(rayTrace.hitVec.xCoord, rayTrace.hitVec.yCoord, rayTrace.hitVec.zCoord, attempt);
+         if (!(y < 1.0)) {
+            double slowingFactor = mc.world.getBlockState(new BlockPos(x, y, z)).getBlock() instanceof BlockLiquid ? 0.8 : 0.99;
+            mx *= slowingFactor;
+            my *= slowingFactor;
+            mz *= slowingFactor;
+            my -= 0.03;
+            Vec3d pos = new Vec3d(x, y, z);
+            RayTraceResult rayTrace = mc.world.rayTraceBlocks(prevPos, pos, false, false, true);
+            if (rayTrace == null || (attempt <= 1 || !rayTrace.typeOfHit.equals(Type.ENTITY)) && !rayTrace.typeOfHit.equals(Type.BLOCK)) {
+               if (checkSelfBox) {
+                  AxisAlignedBB aabb = Minecraft.player.boundingBox;
+                  if (aabb != null
+                     && pos.xCoord >= aabb.minX
+                     && pos.xCoord <= aabb.maxX
+                     && pos.yCoord >= aabb.minY
+                     && pos.yCoord <= aabb.maxY
+                     && pos.zCoord >= aabb.minZ
+                     && pos.zCoord <= aabb.maxZ) {
+                     return new Vector4d(prevPos.xCoord, prevPos.yCoord, prevPos.zCoord, (double)attempt);
+                  }
+               }
+
+               attempt++;
+               continue;
+            }
+
+            return new Vector4d(rayTrace.hitVec.xCoord, rayTrace.hitVec.yCoord, rayTrace.hitVec.zCoord, (double)attempt);
          }
-         if (!checkSelfBox || (aabb = Minecraft.player.boundingBox) == null || !(pos.xCoord >= aabb.minX) || !(pos.xCoord <= aabb.maxX) || !(pos.yCoord >= aabb.minY) || !(pos.yCoord <= aabb.maxY) || !(pos.zCoord >= aabb.minZ) || !(pos.zCoord <= aabb.maxZ)) continue;
-         return new Vector4d(prevPos.xCoord, prevPos.yCoord, prevPos.zCoord, attempt);
+         break;
       }
+
       return null;
    }
 
@@ -143,29 +176,34 @@ public class ThrowFollow
    private Vector4d getPearlDetachPos(EntityEnderPearl pearl, float pTicks) {
       if (pearl == null) {
          return null;
+      } else {
+         Entity thrower = pearl.parsedThrower;
+         if (thrower == null) {
+            return null;
+         } else {
+            double posX = MathUtils.lerp(pearl.prevPosX, pearl.posX, (double)pTicks);
+            double posY = MathUtils.lerp(pearl.prevPosY, pearl.posY, (double)pTicks);
+            double posZ = MathUtils.lerp(pearl.prevPosZ, pearl.posZ, (double)pTicks);
+            double motionX = pearl.motionX + (thrower instanceof EntityPlayerSP ? thrower.motionX : thrower.posX - thrower.lastTickPosX);
+            double motionY = pearl.motionY
+               + (thrower.onGround ? 0.0 : (thrower instanceof EntityPlayerSP ? thrower.motionY : thrower.posY - thrower.lastTickPosY));
+            double motionZ = pearl.motionZ + (thrower instanceof EntityPlayerSP ? thrower.motionZ : thrower.posZ - thrower.lastTickPosZ);
+            return this.virtPearlFlyingDetachPos(posX, posY, posZ, motionX, motionY, motionZ, true);
+         }
       }
-      EntityLivingBase thrower = pearl.parsedThrower;
-      if (thrower == null) {
-         return null;
-      }
-      double posX = MathUtils.lerp(pearl.prevPosX, pearl.posX, (double)pTicks);
-      double posY = MathUtils.lerp(pearl.prevPosY, pearl.posY, (double)pTicks);
-      double posZ = MathUtils.lerp(pearl.prevPosZ, pearl.posZ, (double)pTicks);
-      double motionX = pearl.motionX + (thrower instanceof EntityPlayerSP ? thrower.motionX : thrower.posX - thrower.lastTickPosX);
-      double motionY = pearl.motionY + (thrower.onGround ? 0.0 : (thrower instanceof EntityPlayerSP ? thrower.motionY : thrower.posY - thrower.lastTickPosY));
-      double motionZ = pearl.motionZ + (thrower instanceof EntityPlayerSP ? thrower.motionZ : thrower.posZ - thrower.lastTickPosZ);
-      return this.virtPearlFlyingDetachPos(posX, posY, posZ, motionX, motionY, motionZ, true);
    }
 
    private float calcPitch(Vec3d vecAt, Vec3d vecTo) {
       double dstXZ = Math.hypot(vecTo.xCoord - vecAt.xCoord, vecTo.zCoord - vecAt.zCoord);
       double yTheta = 6.125 * (vecTo.yCoord - vecAt.yCoord);
-      double calibre = 0.05f;
+      double calibre = 0.05F;
       yTheta = calibre * (calibre * dstXZ * dstXZ + yTheta);
-      yTheta = Math.sqrt(9.37890625 - yTheta);
+      yTheta = Math.sqrt(9.378906F - yTheta);
       double maxTheta = 3.0625 - yTheta;
-      float pitch = (float)(-Math.toDegrees(Math.min(yTheta = Math.atan2(maxTheta * maxTheta + yTheta, calibre * dstXZ), maxTheta = Math.atan2(maxTheta, calibre * dstXZ))));
-      return Float.isNaN(pitch) ? 0.0f : pitch;
+      yTheta = Math.atan2(maxTheta * maxTheta + yTheta, calibre * dstXZ);
+      maxTheta = Math.atan2(maxTheta, calibre * dstXZ);
+      float pitch = (float)(-Math.toDegrees(Math.min(yTheta, maxTheta)));
+      return Float.isNaN(pitch) ? 0.0F : pitch;
    }
 
    private VecRotBuffer getBufferForThrowPearl(Vec3d toCalcNearest, double maxDistanceToNearestPos, double minDistanceToSelf, int yawFilteringOffset, float maxYawStep) {
@@ -187,11 +225,11 @@ public class ThrowFollow
       double dX = sX - toCalcNearest.xCoord;
       double dZ = sZ - toCalcNearest.zCoord;
       float middleYaw = (float)Math.toDegrees(Math.atan2(dZ, dX)) + 90.0f;
-      float pitch = this.calcPitch(entitySelf.getPositionVector().addVector(0.0, entitySelf.getEyeHeight(), 0.0), toCalcNearest);
+      float pitch = this.calcPitch(entitySelf.getPositionVector().addVector(0.0, (double)entitySelf.getEyeHeight(), 0.0), toCalcNearest);
       ArrayList<VecRotBuffer> buffers = new ArrayList<VecRotBuffer>();
       for (float yaw = middleYaw - (float)yawFilteringOffset; yaw < middleYaw + (float)yawFilteringOffset; yaw += maxYawStep) {
          Vec3d detachVec;
-         Vector4d detach = this.getDetachPosForVirtPearl(entitySelf, yaw, pitch);
+         Vector4d detach = this.getDetachPosForVirtPearl((EntityPlayer)entitySelf, yaw, pitch);
          if (detach == null || (detachVec = new Vec3d(detach.x, detach.y, detach.z)).distanceTo(toCalcNearest) > maxDistanceToNearestPos || detachVec.distanceTo(entitySelf.getPositionVector()) < minDistanceToSelf) continue;
          buffers.add(new VecRotBuffer(new float[]{yaw, pitch}, detachVec, (int)detach.w));
       }
@@ -211,58 +249,76 @@ public class ThrowFollow
       if (!this.tempListEntities.isEmpty()) {
          this.tempListEntities.clear();
       }
+
       if (HitAura.TARGET_ROTS != null && this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == HitAura.TARGET_ROTS.getEntityId())) {
          this.tempListEntities.add(HitAura.TARGET_ROTS);
       }
+
       if (BowAimbot.target != null && this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == BowAimbot.target.getEntityId())) {
          this.tempListEntities.add(BowAimbot.target);
       }
+
       for (EntityLivingBase cTarget : CrystalField.getTargets()) {
-         if (cTarget == null || !this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == cTarget.getEntityId())) continue;
-         this.tempListEntities.add(cTarget);
-      }
-      EntityLivingBase thudTarget = TargetHUD.getTarget();
-      if (thudTarget != null && thudTarget != Minecraft.player && this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == thudTarget.getEntityId())) {
-         this.tempListEntities.add(thudTarget);
-      }
-      if (this.AnyTargetRange.getFloat() != 0.0f) {
-         for (EntityPlayer player2 : ThrowFollow.mc.world.playerEntities.stream().filter(player -> {
-            EntityOtherPlayerMP MP;
-            return player instanceof EntityOtherPlayerMP && Minecraft.player.getDistanceToEntity(MP = (EntityOtherPlayerMP)player) <= this.AnyTargetRange.getFloat();
-         }).collect(Collectors.toList())) {
-            List<EntityLivingBase> tempEnts = this.tempListEntities.stream().filter(Objects::nonNull).toList();
-            if (!tempEnts.isEmpty() && !tempEnts.stream().noneMatch(base -> base.getEntityId() == player2.getEntityId())) continue;
-            this.tempListEntities.add(player2);
+         if (cTarget != null && this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == cTarget.getEntityId())) {
+            this.tempListEntities.add(cTarget);
          }
       }
+
+      EntityLivingBase thudTarget = TargetHUD.getTarget();
+      if (thudTarget != null
+         && thudTarget != Minecraft.player
+         && this.tempListEntities.stream().noneMatch(base -> base.getEntityId() == thudTarget.getEntityId())) {
+         this.tempListEntities.add(thudTarget);
+      }
+
+      if (this.AnyTargetRange.getFloat() != 0.0F) {
+         for (EntityPlayer player : mc.world.playerEntities.stream().filter(playerx -> {
+            if (playerx instanceof EntityOtherPlayerMP MP && Minecraft.player.getDistanceToEntity(MP) <= this.AnyTargetRange.getFloat()) {
+               return true;
+            }
+
+            return false;
+         }).collect(Collectors.toList())) {
+            List<EntityLivingBase> tempEnts = this.tempListEntities.stream().filter(Objects::nonNull).toList();
+            if (tempEnts.isEmpty() || tempEnts.stream().noneMatch(base -> base.getEntityId() == player.getEntityId())) {
+               this.tempListEntities.add(player);
+            }
+         }
+      }
+
       this.tempListEntities.removeIf(temp -> Client.friendManager.isFriend(temp.getName()) || !temp.isEntityAlive());
       return this.tempListEntities;
    }
 
    private void updateTempTargets(float maxMemoryTime, float pTicks, double pearlMinDistanceAtTarget) {
       List<EntityLivingBase> currents = this.getCurrentTargets();
-      this.TIMED_TARGETS.removeIf(TimedTarget::isToRemove);
+      this.TIMED_TARGETS.removeIf(ThrowFollow.TimedTarget::isToRemove);
+
       for (EntityLivingBase current : currents) {
-         TimedTarget timedTarget = this.TIMED_TARGETS.stream().filter(target -> target.entityID == current.getEntityId()).findAny().orElse(null);
+         ThrowFollow.TimedTarget timedTarget = this.TIMED_TARGETS.stream().filter(targetx -> targetx.entityID == current.getEntityId()).findAny().orElse(null);
          if (timedTarget != null) {
             timedTarget.resetTime();
-            continue;
+         } else {
+            this.TIMED_TARGETS.add(new ThrowFollow.TimedTarget(current, maxMemoryTime));
          }
-         this.TIMED_TARGETS.add(new TimedTarget(current, maxMemoryTime));
       }
-      if (Minecraft.player.isElytraFlying() || Fly.get.actived || MoveMeHelp.getSpeed() > 2.0 || ElytraBoost.get.isActived()) {
-         return;
-      }
-      for (TimedTarget target2 : this.TIMED_TARGETS) {
-         Vec3d targetVec = target2.target.getPositionVector();
-         for (EntityEnderPearl pearl : Objects.requireNonNull(target2.getSingleTickPearls())) {
-            Vector4d vecInfo = this.getPearlDetachPos(pearl, pTicks);
-            if (vecInfo == null) continue;
-            Vec3d vec = new Vec3d(vecInfo.x, vecInfo.y, vecInfo.z);
-            if (vec.distanceTo(targetVec) >= pearlMinDistanceAtTarget) {
-               this.toThrowVectors.add(vec);
+
+      if (!Minecraft.player.isElytraFlying() && !Fly.get.actived && !(MoveMeHelp.getSpeed() > 2.0) && !ElytraBoost.get.isActived()) {
+         for (ThrowFollow.TimedTarget target : this.TIMED_TARGETS) {
+            Vec3d targetVec = target.target.getPositionVector();
+
+            for (EntityEnderPearl pearl : Objects.requireNonNull(target.getSingleTickPearls())) {
+               Vector4d vecInfo = this.getPearlDetachPos(pearl, pTicks);
+               if (vecInfo != null) {
+                  Vec3d vec = new Vec3d(vecInfo.x, vecInfo.y, vecInfo.z);
+                  if (vec.distanceTo(targetVec) >= pearlMinDistanceAtTarget) {
+                     this.toThrowVectors.add(vec);
+                  }
+
+                  this.playTrajOpn();
+                  pearl.check = true;
+               }
             }
-            pearl.check = true;
          }
       }
    }
@@ -270,37 +326,39 @@ public class ThrowFollow
    private int getPearlSlot() {
       if (Minecraft.player.getHeldItemOffhand().getItem() instanceof ItemEnderPearl) {
          return -2;
+      } else {
+         for (int slotNum = 0; slotNum <= (this.PearlFromInventory.getBool() ? 36 : 8); slotNum++) {
+            ItemStack stack = Minecraft.player.inventory.getStackInSlot(slotNum);
+            if (!stack.isEmpty() && stack.getItem() instanceof ItemEnderPearl) {
+               return slotNum;
+            }
+         }
+
+         return -1;
       }
-      for (int slotNum = 0; slotNum <= (this.PearlFromInventory.getBool() ? 36 : 8); ++slotNum) {
-         ItemStack stack = Minecraft.player.inventory.getStackInSlot(slotNum);
-         if (stack.isEmpty() || !(stack.getItem() instanceof ItemEnderPearl)) continue;
-         return slotNum;
-      }
-      return -1;
    }
 
    private void switchAndThrow(int slot) {
-      boolean inInv;
-      if (Minecraft.player.getCooldownTracker().hasCooldown(Items.ENDER_PEARL)) {
-         return;
-      }
-      EnumHand hand = slot == -2 ? EnumHand.OFF_HAND : EnumHand.MAIN_HAND;
-      int handSlot = Minecraft.player.inventory.currentItem;
-      boolean hasMain = hand == EnumHand.MAIN_HAND && handSlot != slot;
-      boolean bl = inInv = slot > 8;
-      if (hasMain) {
-         if (inInv) {
-            ThrowFollow.mc.playerController.windowClick(0, slot, handSlot, ClickType.SWAP, Minecraft.player);
-            ThrowFollow.mc.playerController.windowClickMemory(0, slot, handSlot, ClickType.SWAP, Minecraft.player, 100);
-         } else {
-            Minecraft.player.inventory.currentItem = slot;
-            ThrowFollow.mc.playerController.updateController();
+      if (!Minecraft.player.getCooldownTracker().hasCooldown(Items.ENDER_PEARL)) {
+         EnumHand hand = slot == -2 ? EnumHand.OFF_HAND : EnumHand.MAIN_HAND;
+         int handSlot = Minecraft.player.inventory.currentItem;
+         boolean hasMain = hand == EnumHand.MAIN_HAND && handSlot != slot;
+         boolean inInv = slot > 8;
+         if (hasMain) {
+            if (inInv) {
+               mc.playerController.windowClick(0, slot, handSlot, ClickType.SWAP, Minecraft.player);
+               mc.playerController.windowClickMemory(0, slot, handSlot, ClickType.SWAP, Minecraft.player, 100);
+            } else {
+               Minecraft.player.inventory.currentItem = slot;
+               mc.playerController.updateController();
+            }
          }
-      }
-      ThrowFollow.mc.playerController.processRightClick(Minecraft.player, ThrowFollow.mc.world, hand);
-      if (hasMain && !inInv) {
-         Minecraft.player.inventory.currentItem = handSlot;
-         ThrowFollow.mc.playerController.updateController();
+
+         mc.playerController.processRightClick(Minecraft.player, mc.world, hand);
+         if (hasMain && !inInv) {
+            Minecraft.player.inventory.currentItem = handSlot;
+            mc.playerController.updateController();
+         }
       }
    }
 
@@ -313,8 +371,15 @@ public class ThrowFollow
       float pitch = this.currentRot[1];
       if (event != null) {
          event.setYaw(yaw);
+         if (this.RotateMoveSide.getBool() && Minecraft.player.toCancelSprintTicks <= 1 && MathUtils.getDifferenceOf(Minecraft.player.rotationYaw, yaw) >= 45.0
+            )
+          {
+            Minecraft.player.toCancelSprintTicks = 2;
+         }
+
          event.setPitch(pitch);
       }
+
       HitAura.get.noRotateTick = true;
       RotationUtil.Yaw = yaw;
       RotationUtil.Pitch = pitch;
@@ -324,41 +389,59 @@ public class ThrowFollow
    }
 
    public boolean isLeftClickMouseCanceled() {
-      EntityOtherPlayerMP mp;
-      EntityLivingBase hover;
-      if (this.LClickFollow.getBool() && this.slot != -1 && (hover = MathUtils.getPointedEntity(new Vector2f(Minecraft.player.rotationYaw, Minecraft.player.rotationPitch), 70.0, 1.0f, false)) != null && hover instanceof EntityOtherPlayerMP && (mp = (EntityOtherPlayerMP)hover).isEntityAlive() && !Client.friendManager.isFriend(mp.getName()) && Minecraft.player.canEntityBeSeen(mp) && Minecraft.player.getDistanceToEntity(mp) > 6.0f) {
-         this.toThrowVectors.add(mp.getPositionVector());
-         Minecraft.player.getSwing(this.slot == -2 ? EnumHand.OFF_HAND : EnumHand.MAIN_HAND);
-         return true;
+      if (this.LClickFollow.getBool() && this.slot != -1) {
+         Entity hover = MathUtils.getPointedEntity(new Vector2f(Minecraft.player.rotationYaw, Minecraft.player.rotationPitch), 70.0, 1.0F, false);
+         if (hover != null
+            && hover instanceof EntityOtherPlayerMP mp
+            && mp.isEntityAlive()
+            && !Client.friendManager.isFriend(mp.getName())
+            && Minecraft.player.canEntityBeSeen(mp)
+            && Minecraft.player.getDistanceToEntity(mp) > 6.0F) {
+            this.toThrowVectors.add(mp.getPositionVector());
+            this.playTrajNew();
+            Minecraft.player.getSwing(this.slot == -2 ? EnumHand.OFF_HAND : EnumHand.MAIN_HAND);
+            return true;
+         }
       }
+
       return false;
    }
 
    @Override
    public void onUpdate() {
-      VecRotBuffer calc;
-      Vec3d toThrow;
       if (this.runTicks > 0) {
-         --this.runTicks;
+         this.runTicks--;
       }
-      if ((this.slot = this.getPearlSlot()) == -1) {
-         return;
-      }
-      if (this.runTicks == 1) {
-         this.rotate(null);
-         this.switchAndThrow(this.slot);
-      }
-      this.updateTempTargets(2500.0f, mc.getRenderPartialTicks(), 6.0);
-      Vec3d vec3d = toThrow = this.toThrowVectors.isEmpty() ? null : this.toThrowVectors.get(0);
-      if (toThrow != null && (calc = this.getBufferForThrowPearl(toThrow, this.MaxTpSpread.getFloat(), 5.0, 8, 0.03333333f)) != null && calc.getRot() != null && calc.getCalculatedFinal() != null && this.runTicks == 0 && Minecraft.player.getCooldownTracker().getCooldown(Items.ENDER_PEARL, 0.0f) <= 1.0f) {
-         if (this.RenderMarkers.getBool()) {
-            this.addMarker(calc);
+
+      this.playTrajPopUpdater();
+      if ((this.slot = this.getPearlSlot()) != -1) {
+         if (this.runTicks == 1) {
+            this.rotate(null);
+            this.switchAndThrow(this.slot);
          }
-         this.currentRot = this.getFixedRotation(calc.getRot());
-         this.runTicks = 3;
-      }
-      if (!this.toThrowVectors.isEmpty()) {
-         this.toThrowVectors.clear();
+
+         this.updateTempTargets(2500.0F, mc.getRenderPartialTicks(), 6.0);
+         Vec3d toThrow = this.toThrowVectors.isEmpty() ? null : this.toThrowVectors.get(0);
+         if (toThrow != null) {
+            ThrowFollow.VecRotBuffer calc = this.getBufferForThrowPearl(toThrow, (double)this.MaxTpSpread.getFloat(), 5.0, 8, 0.03333333F);
+            if (calc != null
+               && calc.getRot() != null
+               && calc.getCalculatedFinal() != null
+               && this.runTicks == 0
+               && Minecraft.player.getCooldownTracker().getCooldown(Items.ENDER_PEARL, 0.0F) <= 1.0F) {
+               if (this.RenderMarkers.getBool()) {
+                  this.addMarker(calc);
+               }
+
+               this.currentRot = this.getFixedRotation(calc.getRot());
+               this.runTicks = 3;
+               this.playTrajPop((long)((float)calc.getFlyingTicks() * 50.0F - 100.0F));
+            }
+         }
+
+         if (!this.toThrowVectors.isEmpty()) {
+            this.toThrowVectors.clear();
+         }
       }
    }
 
@@ -390,8 +473,8 @@ public class ThrowFollow
       }
    }
 
-   private void addMarker(VecRotBuffer buffer) {
-      this.markers.add(new TimedVec3d(buffer.getCalculatedFinal(), buffer.getFlyingTicks() * 50 + 100));
+   private void addMarker(ThrowFollow.VecRotBuffer buffer) {
+      this.markers.add(new ThrowFollow.TimedVec3d(buffer.getCalculatedFinal(), (float)(buffer.getFlyingTicks() * 50 + 100)));
    }
 
    @Override
@@ -399,54 +482,55 @@ public class ThrowFollow
       this.markers.clear();
       this.toThrowVectors.clear();
       this.TIMED_TARGETS.clear();
+      this.runTicks = 0;
       super.onToggled(actived);
    }
 
-   private void drawMarker(TimedVec3d timedVec) {
-      double cos1;
-      double sin1;
-      double radian1;
-      double i;
-      float rPC;
-      float effectScale = 1.0f;
+   private void drawMarker(ThrowFollow.TimedVec3d timedVec) {
+      float effectScale = 1.0F;
       float timePC = timedVec.getTimePC();
-      float alphaPC = 1.0f - timePC;
-      alphaPC = (alphaPC > 0.5f ? 1.0f - alphaPC : alphaPC) * 2.0f;
+      float alphaPC = 1.0F - timePC;
+      alphaPC = (alphaPC > 0.5F ? 1.0F - alphaPC : alphaPC) * 2.0F;
       Vec3d vec = timedVec.getVec();
-      float offPCRadius = (float)MathUtils.easeInOutQuad(MathUtils.clamp(timePC * 1.1f, 0.0f, 1.0f));
-      float radius1 = rPC = (float)MathUtils.easeInOutQuad(MathUtils.clamp(timePC * 3.0f, 0.0f, 1.0f));
-      float radius2 = radius1 * offPCRadius;
-      float lineWidthMin = 1.5f;
-      float lineWidthMax = 7.0f;
-      int color1 = ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC * rPC * offPCRadius);
-      int color2 = ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC);
+      float offPCRadius = (float)MathUtils.easeInOutQuad((double)MathUtils.clamp(timePC * 1.1F, 0.0F, 1.0F));
+      float rPC = (float)MathUtils.easeInOutQuad((double)MathUtils.clamp(timePC * 3.0F, 0.0F, 1.0F));
+      float radius1 = rPC;
+      float radius2 = rPC * offPCRadius;
+      float lineWidthMin = 1.5F;
+      float lineWidthMax = 7.0F;
+      int color1 = ColorUtils.getColor(255, 255, 255, 255.0F * alphaPC * rPC * offPCRadius);
+      int color2 = ColorUtils.getColor(255, 255, 255, 255.0F * alphaPC);
       GL11.glPushMatrix();
       GL11.glTranslated(vec.xCoord, vec.yCoord, vec.zCoord);
-      GL11.glRotated(ThrowFollow.mc.getRenderManager().playerViewY + WorldRender.get.offYawOrient, 0.0, -1.0, 0.0);
-      GL11.glRotated(ThrowFollow.mc.getRenderManager().playerViewX + WorldRender.get.offPitchOrient, ThrowFollow.mc.gameSettings.thirdPersonView == 2 ? -1.0 : 1.0, 0.0, 0.0);
+      GL11.glRotated((double)(mc.getRenderManager().playerViewY + WorldRender.get.offYawOrient), 0.0, -1.0, 0.0);
+      GL11.glRotated((double)(mc.getRenderManager().playerViewX + WorldRender.get.offPitchOrient), mc.gameSettings.thirdPersonView == 2 ? -1.0 : 1.0, 0.0, 0.0);
       GL11.glScalef(effectScale, effectScale, effectScale);
       double vecStep = 9.0;
       GL11.glLineWidth(lineWidthMin);
       RenderUtils.glColor(color1);
       GL11.glBegin(2);
-      for (i = 0.0; i < 360.0; i += 9.0) {
-         radian1 = Math.toRadians(i);
-         sin1 = Math.sin(radian1) * (double)radius1;
-         cos1 = -Math.cos(radian1) * (double)radius1;
+
+      for (double i = 0.0; i < 360.0; i += 9.0) {
+         double radian1 = Math.toRadians(i);
+         double sin1 = Math.sin(radian1) * (double)radius1;
+         double cos1 = -Math.cos(radian1) * (double)radius1;
          GL11.glVertex2d(sin1, cos1);
       }
+
       GL11.glEnd();
       GL11.glLineWidth(MathUtils.lerp(lineWidthMin, lineWidthMax, MathUtils.valWave01(offPCRadius)));
       RenderUtils.glColor(color2);
       GL11.glBegin(2);
-      for (i = 0.0; i < 360.0; i += 9.0) {
-         radian1 = Math.toRadians(i);
-         sin1 = Math.sin(radian1) * (double)radius2;
-         cos1 = -Math.cos(radian1) * (double)radius2;
+
+      for (double i = 0.0; i < 360.0; i += 9.0) {
+         double radian1 = Math.toRadians(i);
+         double sin1 = Math.sin(radian1) * (double)radius2;
+         double cos1 = -Math.cos(radian1) * (double)radius2;
          GL11.glVertex2d(sin1, cos1);
       }
+
       GL11.glEnd();
-      GL11.glLineWidth(1.0f);
+      GL11.glLineWidth(1.0F);
       GL11.glPopMatrix();
    }
 
@@ -457,37 +541,14 @@ public class ThrowFollow
             GL11.glDisable(3008);
             GL11.glEnable(2848);
             GL11.glHint(3154, 4354);
-            this.markers.forEach(mark -> this.drawMarker((TimedVec3d)mark));
+            this.markers.forEach(mark -> this.drawMarker(mark));
             GL11.glHint(3154, 4352);
             GL11.glDisable(2848);
             GL11.glEnable(3008);
          }, false);
       }
-      this.markers.removeIf(TimedVec3d::isToRemove);
-   }
 
-   private class VecRotBuffer {
-      private final float[] rot;
-      private final Vec3d calculatedFinal;
-      private final int flyingTicks;
-
-      public float[] getRot() {
-         return this.rot;
-      }
-
-      public Vec3d getCalculatedFinal() {
-         return this.calculatedFinal;
-      }
-
-      public int getFlyingTicks() {
-         return this.flyingTicks;
-      }
-
-      public VecRotBuffer(float[] rot, Vec3d calculatedFinal, int flyingTicks) {
-         this.rot = rot;
-         this.calculatedFinal = calculatedFinal;
-         this.flyingTicks = flyingTicks;
-      }
+      this.markers.removeIf(ThrowFollow.TimedVec3d::isToRemove);
    }
 
    private class TimedTarget {
@@ -501,6 +562,7 @@ public class ThrowFollow
          if (target != null) {
             this.entityID = target.getEntityId();
          }
+
          this.maxMemoryTime = maxMemoryTime;
       }
 
@@ -517,7 +579,14 @@ public class ThrowFollow
       }
 
       public List<EntityEnderPearl> getSingleTickPearls() {
-         return Module.mc.world.getLoadedEntityList().stream().map(entity -> entity instanceof EntityEnderPearl ? (EntityEnderPearl)entity : null).filter(Objects::nonNull).filter(pearl -> !pearl.check && pearl.parsedThrower != null && pearl.parsedThrower.getEntityId() == this.entityID).collect(Collectors.toList());
+         return Module.mc
+            .world
+            .getLoadedEntityList()
+            .stream()
+            .map(entity -> entity instanceof EntityEnderPearl ? (EntityEnderPearl)entity : null)
+            .filter(Objects::nonNull)
+            .filter(pearl -> !pearl.check && pearl.parsedThrower != null && pearl.parsedThrower.getEntityId() == this.entityID)
+            .collect(Collectors.toList());
       }
    }
 
@@ -533,15 +602,47 @@ public class ThrowFollow
 
       public float getTimePC() {
          float timePC = (float)this.timer.getTime() / this.maxTime;
-         return timePC > 1.0f ? 1.0f : timePC;
+         return timePC > 1.0F ? 1.0F : timePC;
       }
 
       public boolean isToRemove() {
-         return this.getTimePC() == 1.0f;
+         return this.getTimePC() == 1.0F;
       }
 
       public Vec3d getVec() {
          return this.vec;
+      }
+   }
+
+   private class VecRotBuffer {
+      private float[] rot;
+      private final Vec3d calculatedFinal;
+      private int flyingTicks;
+
+      public float[] getRot() {
+         return this.rot;
+      }
+
+      public void setRot(float[] rot) {
+         this.rot = rot;
+      }
+
+      public Vec3d getCalculatedFinal() {
+         return this.calculatedFinal;
+      }
+
+      public int getFlyingTicks() {
+         return this.flyingTicks;
+      }
+
+      public void setFlyingTicks(int flyingTicks) {
+         this.flyingTicks = flyingTicks;
+      }
+
+      public VecRotBuffer(float[] rot, Vec3d calculatedFinal, int flyingTicks) {
+         this.rot = rot;
+         this.calculatedFinal = calculatedFinal;
+         this.flyingTicks = flyingTicks;
       }
    }
 }

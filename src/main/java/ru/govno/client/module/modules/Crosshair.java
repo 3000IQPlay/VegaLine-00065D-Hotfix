@@ -5,6 +5,8 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.GlStateManager.DestFactor;
+import net.minecraft.client.renderer.GlStateManager.SourceFactor;
 import net.minecraft.util.math.MathHelper;
 import ru.govno.client.module.Module;
 import ru.govno.client.module.settings.ColorSettings;
@@ -150,20 +152,24 @@ public class Crosshair extends Module {
 
    void updateMotions() {
       int vantuz = Minecraft.player.ticksExisted < 10 ? 0 : 1;
-      this.mousePreX.to = (Minecraft.player.lastReportedPreYaw - Minecraft.player.rotationYaw) * 3.5F * (float)vantuz;
-      this.mousePreY.to = (EntityPlayerSP.lastReportedPrePitch - Minecraft.player.rotationPitch) * 5.0F * (float)vantuz;
+      if (Minecraft.player.isRiding()) {
+         this.mousePreX.to = 0.0F;
+         this.mousePreY.to = 0.0F;
+      } else {
+         this.mousePreX.to = (Minecraft.player.lastReportedPreYaw - Minecraft.player.rotationYaw) * 3.5F * (float)vantuz;
+         this.mousePreY.to = (EntityPlayerSP.lastReportedPrePitch - Minecraft.player.rotationPitch) * 5.0F * (float)vantuz;
+      }
+
       this.crossPosMotions[0] = -this.mousePreX.getAnim();
       this.crossPosMotions[1] = -this.mousePreY.getAnim();
    }
 
    public float[] getMouseMotion() {
-      return new float[]{this.mousePreX.getAnim(), this.mousePreY.getAnim()};
+      return new float[]{this.mousePreX.anim, this.mousePreY.anim};
    }
 
    public void draw(float x, float y, int color) {
-      GlStateManager.tryBlendFuncSeparate(
-         GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-      );
+      GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
       RenderUtils.drawPolygonPartsGlowBackSAlpha((double)x, (double)y, 4.0F, 1, color, 0, ColorUtils.getGLAlphaFromColor(color), true);
    }
 }

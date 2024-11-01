@@ -1,38 +1,39 @@
 package ru.govno.client.utils;
 
 public class TimerHelper {
-   private long previousTime = -1L;
-   private long ms = this.getCurrentMS();
+    private long previousTime = -1L;
+    private long ms = this.getCurrentMS();
 
-   public boolean check(float milliseconds) {
-      return (float)(this.getCurrentTime() - this.previousTime) >= milliseconds;
-   }
+    public boolean check(float milliseconds) {
+        return (float)(this.getCurrentTime() - this.previousTime) >= milliseconds;
+    }
 
-   public short convert(float perSecond) {
-      return (short)((int)(1000.0F / perSecond));
-   }
+    public short convert(float perSecond) {
+        return (short)(1000.0f / perSecond);
+    }
 
-   public long get() {
-      return this.previousTime;
-   }
+    public long get() {
+        return this.previousTime;
+    }
 
-   public long getCurrentTime() {
-      return System.currentTimeMillis();
-   }
+    public long getCurrentTime() {
+        return System.currentTimeMillis();
+    }
 
-   private long getCurrentMS() {
-      return System.currentTimeMillis();
-   }
+    private long getCurrentMS() {
+        return System.currentTimeMillis();
+    }
 
-   public boolean hasReached(float milliseconds) {
-      return (float)(this.getCurrentMS() - this.ms) > milliseconds;
-   }
+    public boolean hasReached(float milliseconds) {
+        return (float)(this.getCurrentMS() - this.ms) > milliseconds;
+    }
 
-   public void reset() {
-      this.ms = this.getCurrentMS();
-   }
+    public void reset() {
+        this.ms = this.getCurrentMS();
+    }
 
-   public long getTime() {
-      return this.getCurrentMS() - this.ms;
-   }
+    public long getTime() {
+        return this.getCurrentMS() - this.ms;
+    }
 }
+

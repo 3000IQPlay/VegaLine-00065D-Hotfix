@@ -5,8 +5,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target({ElementType.METHOD})
-@Retention(RetentionPolicy.RUNTIME)
+@Target(value={ElementType.METHOD})
+@Retention(value=RetentionPolicy.RUNTIME)
 public @interface EventTarget {
-   byte value() default 1;
+    public byte value() default 1;
 }
+

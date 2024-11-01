@@ -17,103 +17,106 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class Wrapper {
-   private static Wrapper theWrapper = new Wrapper();
-   public static Minecraft mc = Minecraft.getMinecraft();
-   public static volatile Wrapper INSTANCE = new Wrapper();
-   public static FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-   public static MacFileUtils.FileManager fileManager;
+    private static Wrapper theWrapper = new Wrapper();
+    public static Minecraft mc = Minecraft.getMinecraft();
+    public static volatile Wrapper INSTANCE = new Wrapper();
+    public static FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+    public static MacFileUtils.FileManager fileManager;
 
-   public static Wrapper getInstance() {
-      return theWrapper;
-   }
+    public static Wrapper getInstance() {
+        return theWrapper;
+    }
 
-   public static float getCooldown() {
-      return Minecraft.player.getCooledAttackStrength(0.0F);
-   }
+    public static float getCooldown() {
+        return Minecraft.player.getCooledAttackStrength(0.0f);
+    }
 
-   public static MacFileUtils.FileManager getFileManager() {
-      if (fileManager == null) {
-      }
+    public static MacFileUtils.FileManager getFileManager() {
+        if (fileManager == null) {
+            // empty if block
+        }
+        return fileManager;
+    }
 
-      return fileManager;
-   }
+    public static Entity getRenderEntity() {
+        return mc.getRenderViewEntity();
+    }
 
-   public static Entity getRenderEntity() {
-      return mc.getRenderViewEntity();
-   }
+    public static Block getBlock(BlockPos pos) {
+        return Minecraft.getMinecraft().world.getBlockState(pos).getBlock();
+    }
 
-   public static Block getBlock(BlockPos pos) {
-      return Minecraft.getMinecraft().world.getBlockState(pos).getBlock();
-   }
+    public static Minecraft getMinecraft() {
+        return Minecraft.getMinecraft();
+    }
 
-   public static Minecraft getMinecraft() {
-      return Minecraft.getMinecraft();
-   }
+    public static EntityPlayerSP getPlayer() {
+        Wrapper.getMinecraft();
+        return Minecraft.player;
+    }
 
-   public static EntityPlayerSP getPlayer() {
-      getMinecraft();
-      return Minecraft.player;
-   }
+    public static World getWorld() {
+        return Wrapper.getMinecraft().world;
+    }
 
-   public static World getWorld() {
-      return getMinecraft().world;
-   }
+    public static <T, E> void setPrivateValue(Class<? super T> classToAccess, T instance, E value, String ... fieldNames) {
+        try {
+            Wrapper.findField(classToAccess, fieldNames).set(instance, value);
+        }
+        catch (Exception exception) {
+            // empty catch block
+        }
+    }
 
-   public static <T, E> void setPrivateValue(Class<? super T> classToAccess, T instance, E value, String... fieldNames) {
-      try {
-         findField(classToAccess, fieldNames).set(instance, value);
-      } catch (Exception var5) {
-      }
-   }
+    private static Field findField(Class<?> clazz, String ... fieldNames) {
+        Exception failed = null;
+        for (String fieldName : fieldNames) {
+            try {
+                Field f = clazz.getDeclaredField(fieldName);
+                f.setAccessible(true);
+                return f;
+            }
+            catch (Exception e) {
+                failed = e;
+            }
+        }
+        return null;
+    }
 
-   private static Field findField(Class<?> clazz, String... fieldNames) {
-      Exception failed = null;
+    public static Minecraft mc() {
+        return Minecraft.getMinecraft();
+    }
 
-      for (String fieldName : fieldNames) {
-         try {
-            Field f = clazz.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            return f;
-         } catch (Exception var7) {
-         }
-      }
+    public static EntityPlayerSP player() {
+        INSTANCE.mc();
+        return Minecraft.player;
+    }
 
-      return null;
-   }
+    public WorldClient world() {
+        return Wrapper.INSTANCE.mc().world;
+    }
 
-   public static Minecraft mc() {
-      return Minecraft.getMinecraft();
-   }
+    public GameSettings mcSettings() {
+        return Wrapper.INSTANCE.mc().gameSettings;
+    }
 
-   public static EntityPlayerSP player() {
-      mc();
-      return Minecraft.player;
-   }
+    public FontRenderer fontRenderer() {
+        return Wrapper.INSTANCE.mc().fontRendererObj;
+    }
 
-   public WorldClient world() {
-      return mc().world;
-   }
+    public void sendPacket(CPacketAnimation cPacketAnimation) {
+        this.player().connection.sendPacket(cPacketAnimation);
+    }
 
-   public GameSettings mcSettings() {
-      return mc().gameSettings;
-   }
+    public InventoryPlayer inventory() {
+        return this.player().inventory;
+    }
 
-   public FontRenderer fontRenderer() {
-      return mc().fontRendererObj;
-   }
+    public PlayerControllerMP controller() {
+        return Wrapper.INSTANCE.mc().playerController;
+    }
 
-   public void sendPacket(CPacketAnimation cPacketAnimation) {
-      player().connection.sendPacket(cPacketAnimation);
-   }
-
-   public InventoryPlayer inventory() {
-      return player().inventory;
-   }
-
-   public PlayerControllerMP controller() {
-      return mc().playerController;
-   }
-
-   public void sendPacket(CPacketPlayer cPacketPlayer) {
-   }
+    public void sendPacket(CPacketPlayer cPacketPlayer) {
+    }
 }
+

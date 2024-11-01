@@ -8,9 +8,12 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.network.play.client.CPacketUseEntity;
+import net.minecraft.network.play.client.CPacketUseEntity.Action;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 import optifine.Config;
@@ -33,22 +36,35 @@ public class FragEffects extends Module {
    public final AnimationUtils strikeAnimation = new AnimationUtils(0.0F, 0.0F, 0.03F);
    public static FragEffects get;
    private boolean timerForce2;
+   private ResourceLocation LIGHT_VIGNETTE_TEX = new ResourceLocation("vegaline/modules/frageffects/vignette.png");
+   private EntityLivingBase lastDeceasedBase;
    private final List<FragEffects.EntityDeathMemory> DEATH_MEMORIES_LIST = new ArrayList<>();
    public boolean hasLoadedDesaturate;
-   private final ResourceLocation LIGHT_VIGNETTE_TEX = new ResourceLocation("vegaline/modules/frageffects/vignette.png");
    private boolean texHasLoaded;
    private final List<FragEffects.FragParticle> fragParticles = new ArrayList<>();
 
    public FragEffects() {
       super("FragEffects", 0, Module.Category.RENDER);
       this.settings.add(this.NoMobsDetect = new BoolSettings("NoMobsDetect", true, this));
+
+      try {
+         DynamicTexture dynamicTexture = new DynamicTexture(
+            TextureUtil.readBufferedImage(Minecraft.getMinecraft().getResourceManager().getResource(this.LIGHT_VIGNETTE_TEX).getInputStream())
+         );
+         dynamicTexture.setBlurMipmap(true, false);
+         this.LIGHT_VIGNETTE_TEX = Minecraft.getMinecraft().getTextureManager().getDynamicTextureLocation(dynamicTexture.toString(), dynamicTexture);
+      } catch (Exception var2) {
+         var2.fillInStackTrace();
+      }
+
+      mc.getTextureManager().bindTexture(this.LIGHT_VIGNETTE_TEX);
       get = this;
    }
 
    private float updateStrikeAnimation() {
       float value = 0.0F;
       if (this.strikeAnimation.to == 1.0F) {
-         this.strikeAnimation.speed = 0.075F;
+         this.strikeAnimation.speed = 0.07F;
          if (!Config.isShaders()) {
             mc.gameSettings.anaglyph = true;
          }
@@ -56,10 +72,15 @@ public class FragEffects extends Module {
          if ((value = this.strikeAnimation.getAnim()) > 0.998F) {
             this.strikeAnimation.setAnim(1.0F);
             this.strikeAnimation.to = 0.0F;
+            if (this.lastDeceasedBase != null) {
+               this.spawnAllParticles(this.lastDeceasedBase, 360, 2400.0F);
+               this.spawnAllParticles(this.lastDeceasedBase, 1200, 300.0F);
+            }
+
             value = 1.0F;
          }
       } else if (this.strikeAnimation.to == 0.0F) {
-         this.strikeAnimation.speed = 0.035F;
+         this.strikeAnimation.speed = 0.07F;
          mc.gameSettings.anaglyph = false;
          if ((value = this.strikeAnimation.getAnim()) < 0.01F && value != 0.0F) {
             this.strikeAnimation.setAnim(0.0F);
@@ -71,11 +92,11 @@ public class FragEffects extends Module {
 
    private void triggerStrikeAniation() {
       this.strikeAnimation.to = 1.0F;
-      this.strikeAnimation.setAnim(0.35F);
+      this.strikeAnimation.setAnim(0.5F);
    }
 
    private void playStrikeSound() {
-      MusicHelper.playSound("strikesf-2.wav");
+      MusicHelper.playSound("strikesf-2.wav", 0.3F);
    }
 
    private void doFlickToDeceased(Entity deceased) {
@@ -102,7 +123,9 @@ public class FragEffects extends Module {
          Timer.forceTimer(0.35F);
          this.timerForce2 = true;
          if (deceased instanceof EntityLivingBase deceasedBase) {
-            this.spawnAllParticles(deceasedBase, 135, 4000.0F);
+            this.spawnAllParticles(deceasedBase, 2400, 150.0F);
+            this.spawnAllParticles(deceasedBase, 3600, 450.0F);
+            this.lastDeceasedBase = deceasedBase;
          }
       };
    }
@@ -134,7 +157,7 @@ public class FragEffects extends Module {
    public void onSendPackets(EventSendPacket event) {
       Entity checkedEntity;
       if (event.getPacket() instanceof CPacketUseEntity useEntityPacket
-         && useEntityPacket.getAction() == CPacketUseEntity.Action.ATTACK
+         && useEntityPacket.getAction() == Action.ATTACK
          && (checkedEntity = useEntityPacket.getEntityFromWorld(mc.world)) != null
          && checkedEntity instanceof EntityLivingBase base) {
          this.controllingAddingMemoryToEntity(base);
@@ -165,7 +188,7 @@ public class FragEffects extends Module {
    }
 
    private void drawLightVignette(ScaledResolution sr, float alphaPC, boolean loadMode) {
-      int color = ColorUtils.getColor(255, 255, 255, 100.0F * alphaPC);
+      int color = ColorUtils.getColor(255, (int)(255.0F * (1.0F - alphaPC / 1.25F)), (int)(255.0F * (1.0F - alphaPC / 1.25F)), 190.0F * alphaPC);
       float sideSetX = (float)sr.getScaledWidth() / 2.0F * (1.0F - alphaPC) * (1.0F - alphaPC);
       float sideSetY = (float)sr.getScaledHeight() / 2.0F * (1.0F - alphaPC) * (1.0F - alphaPC);
       GL11.glEnable(3042);
@@ -193,7 +216,7 @@ public class FragEffects extends Module {
    @Override
    public void onUpdate() {
       if (this.timerForce2) {
-         Timer.forceTimer(0.08F);
+         Timer.forceTimer(0.1F);
          this.timerForce2 = false;
       }
 
@@ -288,9 +311,9 @@ public class FragEffects extends Module {
 
    private void spawnAllParticles(EntityLivingBase base, int count, float maxTime) {
       if (base != null) {
-         float startDst = 1.0F;
-         float yExt = startDst;
-         float yMaxRand = startDst / 2.0F;
+         float startDst = 0.5F;
+         float yExt = startDst / 5.0F;
+         float yMaxRand = yExt / 2.0F;
          Vec3d spawnPos = base.getPositionVector().addVector(0.0, (double)(base.getEyeHeight() / 2.0F), 0.0);
 
          for (int index = 0; index < count; index++) {
@@ -329,8 +352,14 @@ public class FragEffects extends Module {
                GL11.glDisable(3008);
                GL11.glEnable(2832);
                GL11.glDepthMask(false);
-               GL11.glPointSize(3.0F);
-               GL11.glBegin(0);
+               boolean lines = this.strikeAnimation.to == 0.0F;
+               GL11.glBlendFunc(770, 32772);
+               if (lines) {
+                  GL11.glBegin(4);
+               } else {
+                  GL11.glPointSize(3.0F);
+                  GL11.glBegin(0);
+               }
 
                for (FragEffects.FragParticle fragParticle : this.fragParticles) {
                   float aPC = MathUtils.clamp(Math.min(fragParticle.get010PC() * 3.0F, 1.0F) * fragParticle.getAlphaPC(), 0.0F, 1.0F) * alphaPC;
@@ -339,7 +368,9 @@ public class FragEffects extends Module {
                   }
 
                   int color = ColorUtils.getOverallColorFrom(
-                     ColorUtils.swapAlpha(0, 255.0F * aPC), ColorUtils.swapAlpha(-1, 255.0F * aPC), fragParticle.randomFloat
+                     ColorUtils.swapAlpha(0, 255.0F * aPC),
+                     ColorUtils.getColor(255, (int)(255.0F * aPC), (int)(255.0F * aPC), 255.0F * aPC),
+                     fragParticle.randomFloat
                   );
                   Vec3d pos = fragParticle.getPos();
                   RenderUtils.glColor(color);
@@ -347,7 +378,11 @@ public class FragEffects extends Module {
                }
 
                GL11.glEnd();
-               GL11.glPointSize(1.0F);
+               if (!lines) {
+                  GL11.glPointSize(1.0F);
+               }
+
+               GL11.glBlendFunc(770, 771);
                GL11.glEnable(3008);
                GL11.glDepthMask(true);
             },
@@ -440,7 +475,6 @@ public class FragEffects extends Module {
 
       public Vec3d getPos() {
          float timePC = this.getTimePC();
-         float pc010 = this.get010PC();
          float yaw = MathUtils.lerp(this.startYaw, this.toYaw, timePC);
          float dst = MathUtils.lerp(this.startDst, this.toDst, timePC);
          float yExt = this.toY * timePC;

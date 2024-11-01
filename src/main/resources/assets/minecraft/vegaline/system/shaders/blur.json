@@ -29,7 +29,7 @@
         },
         {
           "name": "Radius",
-          "values": [ 8.0 ]
+          "values": [ 4.0 ]
         }
       ]
     },
@@ -44,7 +44,7 @@
         },
         {
           "name": "Radius",
-          "values": [ 8.0 ]
+          "values": [ 4.0 ]
         }
       ]
     },
@@ -59,7 +59,7 @@
         },
         {
           "name": "Radius",
-          "values": [ 8.0 ]
+          "values": [ 4.0 ]
         }
       ]
     }

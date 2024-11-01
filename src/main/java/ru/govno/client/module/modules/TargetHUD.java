@@ -18,6 +18,8 @@ import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.RenderItem;
+import net.minecraft.client.renderer.GlStateManager.DestFactor;
+import net.minecraft.client.renderer.GlStateManager.SourceFactor;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.inventory.EntityEquipmentSlot;
@@ -239,9 +241,7 @@ public class TargetHUD extends Module {
       StencilUtil.uninitStencilBuffer();
       GlStateManager.enableBlend();
       GlStateManager.enableAlpha();
-      GlStateManager.tryBlendFuncSeparate(
-         GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-      );
+      GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
 
       for (int i = 0; i < particles.size(); i++) {
          TargetHUD.particle particle = particles.get(i);
@@ -659,48 +659,45 @@ public class TargetHUD extends Module {
       GlStateManager.resetColor();
    }
 
-   private final void renderNeomoin(final EntityLivingBase target) {
-      final ScaledResolution scale = new ScaledResolution(TargetHUD.mc);
-      final ResourceLocation res = TargetHUD.skin;
-      final float aPC = this.Scaleclamp();
-      final String hp = (target.getHealth() == 0.0f) ? "" : (String.format("%.1f", this.hpRectAnim * target.getMaxHealth() + target.getAbsorptionAmount()) + "hp");
-      final float w = TargetHUD.widthHud;
-      final float h = TargetHUD.heightHud;
-      final CFontRenderer namefont = Fonts.mntsb_13;
-      final float x = TargetHUD.xPosHud;
-      final float y = TargetHUD.yPosHud + (1.0f - aPC) * 3.0f;
-      final float texX = x + h * 2.0f - 4.0f;
+   private final void renderNeomoin(EntityLivingBase target) {
+      ScaledResolution scale = new ScaledResolution(mc);
+      ResourceLocation res = skin;
+      float aPC = this.Scaleclamp();
+      String hp = target.getHealth() == 0.0f ? "" : String.format("%.1f", Float.valueOf(this.hpRectAnim * target.getMaxHealth() + target.getAbsorptionAmount())) + "hp";
+      float w = widthHud;
+      float h = heightHud;
+      CFontRenderer namefont = Fonts.mntsb_13;
+      float x = xPosHud;
+      float y = yPosHud + (1.0f - aPC) * 3.0f;
+      float texX = x + h * 2.0f - 4.0f;
       int stacksCount = 0;
-      final ItemStack offhand = target.getHeldItemOffhand();
-      final ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
-      final ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
-      final ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
-      final ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
-      final ItemStack inHand = target.getHeldItemMainhand();
-      final ItemStack[] stuff = { offhand, inHand, boots, leggings, body, helm };
-      final ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
-      int j;
-      ItemStack[] array;
-      int length;
-      ItemStack i;
-      for (j = 0, length = (array = stuff).length, j = 0; j < length; ++j) {
-         i = array[j];
-         if (i != null) {
-            i.getItem();
-            stacks.add(i);
-         }
+      ItemStack offhand = target.getHeldItemOffhand();
+      ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
+      ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
+      ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
+      ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
+      ItemStack inHand = target.getHeldItemMainhand();
+      ItemStack[] stuff = new ItemStack[]{offhand, inHand, boots, leggings, body, helm};
+      ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
+      int j = 0;
+      ItemStack[] array = stuff;
+      int length = stuff.length;
+      for (j = 0; j < length; ++j) {
+         ItemStack i = array[j];
+         if (i == null) continue;
+         i.getItem();
+         stacks.add(i);
       }
-      for (final ItemStack stack : stacks) {
-         if (!stack.isEmpty()) {
-            ++stacksCount;
-         }
+      for (ItemStack stack : stacks) {
+         if (stack.isEmpty()) continue;
+         ++stacksCount;
       }
-      float wHD = texX - x + namefont.getStringWidth(this.targetName) + 4.0f;
-      if (h * 2.0f + 8.5f * stacksCount + 5.0f > wHD) {
-         wHD = h * 2.0f + 8.5f * stacksCount + 5.0f;
+      float wHD = texX - x + (float)namefont.getStringWidth(this.targetName) + 4.0f;
+      if (h * 2.0f + 8.5f * (float)stacksCount + 5.0f > wHD) {
+         wHD = h * 2.0f + 8.5f * (float)stacksCount + 5.0f;
       }
-      TargetHUD.widthHud = MathUtils.clamp(MathUtils.lerp(TargetHUD.widthHud, wHD, 0.01f * (float)Minecraft.frameTime), h * 2.0f, 900.0f);
-      TargetHUD.heightHud = 30.0f;
+      widthHud = MathUtils.clamp(MathUtils.lerp(widthHud, wHD, 0.01f * (float)Minecraft.frameTime), h * 2.0f, 900.0f);
+      heightHud = 30.0f;
       this.hpAnim.speed = 0.075f;
       this.hurtHpAnim.speed = 0.1f;
       this.hpAnim.to = MathUtils.clamp(target.getHealth() / target.getMaxHealth(), 0.0f, 1.0f);
@@ -710,112 +707,109 @@ public class TargetHUD extends Module {
       if (this.hurtHpAnim.getAnim() < this.hpAnim.getAnim()) {
          this.hurtHpAnim.setAnim(this.hpAnim.getAnim());
       }
-      final float hpRectAnim = this.hpAnim.getAnim();
-      final float hurtRectAnim = this.hurtHpAnim.getAnim();
-      final int accentV1 = ColorUtils.swapAlpha(ClientColors.getColor1(), ColorUtils.getAlphaFromColor(ClientColors.getColor1()) * aPC);
-      final int accentV2 = ColorUtils.swapAlpha(ClientColors.getColor2(), ColorUtils.getAlphaFromColor(ClientColors.getColor2()) * aPC);
-      final int accent1 = ColorUtils.swapAlpha(accentV1, ColorUtils.getAlphaFromColor(accentV1) * aPC);
-      final int accent2 = ColorUtils.swapAlpha(accentV2, ColorUtils.getAlphaFromColor(accentV2) * aPC);
-      final int bgc1 = ColorUtils.getOverallColorFrom(accent1, ColorUtils.getColor(0, 0, 0, ColorUtils.getAlphaFromColor(accent1)), 0.8f);
-      final int bgc2 = ColorUtils.getOverallColorFrom(accent2, ColorUtils.getColor(0, 0, 0, ColorUtils.getAlphaFromColor(accent2)), 0.8f);
-      final int bg1 = ColorUtils.swapAlpha(bgc1, ColorUtils.getAlphaFromColor(bgc1) * aPC / 2.2f);
-      final int bg2 = ColorUtils.swapAlpha(bgc2, ColorUtils.getAlphaFromColor(bgc2) * aPC / 2.2f);
-      final int bgOut1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(accent1, bgc1, 0.6f), ColorUtils.getAlphaFromColor(bgc1) * aPC);
-      final int bgOut2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(accent2, bgc2, 0.6f), ColorUtils.getAlphaFromColor(bgc2) * aPC);
-      final int headCol = ColorUtils.swapAlpha(ColorUtils.swapDark(ColorUtils.getColor(255, (int)(255.0f - 80.0f * (target.hurtTime / 9.0f)), (int)(255.0f - 80.0f * (target.hurtTime / 9.0f))), 0.5f + aPC / 2.0f), 255.0f * aPC * aPC);
-      final int hpBgC = ColorUtils.getColor(11, 11, 11, 60.0f * aPC);
-      final int hpBgCOut = ColorUtils.getColor(11, 11, 11, 100.0f * aPC);
-      final int texCol = ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * aPC * aPC);
-      final int itemsBgCol = ColorUtils.getColor(11, 11, 11, 80.0f * aPC);
+      float hpRectAnim = this.hpAnim.getAnim();
+      float hurtRectAnim = this.hurtHpAnim.getAnim();
+      int accentV1 = ColorUtils.swapAlpha(ClientColors.getColor1(), (float)ColorUtils.getAlphaFromColor(ClientColors.getColor1()) * aPC);
+      int accentV2 = ColorUtils.swapAlpha(ClientColors.getColor2(), (float)ColorUtils.getAlphaFromColor(ClientColors.getColor2()) * aPC);
+      int accent1 = ColorUtils.swapAlpha(accentV1, (float)ColorUtils.getAlphaFromColor(accentV1) * aPC);
+      int accent2 = ColorUtils.swapAlpha(accentV2, (float)ColorUtils.getAlphaFromColor(accentV2) * aPC);
+      int bgc1 = ColorUtils.getOverallColorFrom(accent1, ColorUtils.getColor(0, 0, 0, ColorUtils.getAlphaFromColor(accent1)), 0.8f);
+      int bgc2 = ColorUtils.getOverallColorFrom(accent2, ColorUtils.getColor(0, 0, 0, ColorUtils.getAlphaFromColor(accent2)), 0.8f);
+      int bg1 = ColorUtils.swapAlpha(bgc1, (float)ColorUtils.getAlphaFromColor(bgc1) * aPC / 2.2f);
+      int bg2 = ColorUtils.swapAlpha(bgc2, (float)ColorUtils.getAlphaFromColor(bgc2) * aPC / 2.2f);
+      int bgOut1 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(accent1, bgc1, 0.6f), (float)ColorUtils.getAlphaFromColor(bgc1) * aPC);
+      int bgOut2 = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(accent2, bgc2, 0.6f), (float)ColorUtils.getAlphaFromColor(bgc2) * aPC);
+      int headCol = ColorUtils.swapAlpha(ColorUtils.swapDark(ColorUtils.getColor(255, (int)(255.0f - 80.0f * ((float)target.hurtTime / 9.0f)), (int)(255.0f - 80.0f * ((float)target.hurtTime / 9.0f))), 0.5f + aPC / 2.0f), 255.0f * aPC * aPC);
+      int hpBgC = ColorUtils.getColor(11, 11, 11, 60.0f * aPC);
+      int hpBgCOut = ColorUtils.getColor(11, 11, 11, 100.0f * aPC);
+      int texCol = ColorUtils.swapAlpha(ColorUtils.getFixedWhiteColor(), 255.0f * aPC * aPC);
+      int itemsBgCol = ColorUtils.getColor(11, 11, 11, 80.0f * aPC);
       GL11.glPushMatrix();
       RenderUtils.drawOutsideAndInsideFullRoundedFullGradientShadowRectWithBloomBoolShadowsBoolChangeShadowSize(x, y, x + w, y + h, 3.5f, 2.0f, 6.0f, bg1, bg2, bg2, bg1, true, true, true);
       RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 5.0f, 1.0f, bg1, bg2, bg2, bg1, false, true, true);
       if (target.hurtTime > 7) {
-         final float rt = (float)(-5.0 * Math.random() + 10.0 * Math.random());
-         final float rt2 = (float)(-5.0 * Math.random() + 10.0 * Math.random());
-         TargetHUD.particles.add(new particle(x + h / 2.0f + rt, y + h / 2.0f + rt2));
+         float rt = (float)(-5.0 * Math.random() + 10.0 * Math.random());
+         float rt2 = (float)(-5.0 * Math.random() + 10.0 * Math.random());
+         particles.add(new particle(x + h / 2.0f + rt, y + h / 2.0f + rt2));
       }
-      for (int k = 0; k < TargetHUD.particles.size(); ++k) {
-         final particle particle = TargetHUD.particles.get(k);
-         final float timePC = particle.getTime() / 700.0f;
+      for (int i = 0; i < particles.size(); ++i) {
+         particle particle2 = particles.get(i);
+         float timePC = (float)particle2.getTime() / 700.0f;
          if (timePC >= 1.0f) {
-            TargetHUD.particles.remove(particle);
+            particles.remove(particle2);
+            continue;
          }
-         else {
-            final int pC = ColorUtils.swapAlpha(ClientColors.getColor1(k * 10), ColorUtils.getAlphaFromColor(ClientColors.getColor1(k * 10)) * aPC);
-            final int pc1 = ColorUtils.swapAlpha(pC, ColorUtils.getAlphaFromColor(pC) * aPC * aPC);
-            final int pColor = ColorUtils.swapAlpha(pc1, 255.0f * (1.0f - timePC) * aPC);
-            particle.update(pColor);
-         }
+         int pC = ColorUtils.swapAlpha(ClientColors.getColor1(i * 10), (float)ColorUtils.getAlphaFromColor(ClientColors.getColor1(i * 10)) * aPC);
+         int pc1 = ColorUtils.swapAlpha(pC, (float)ColorUtils.getAlphaFromColor(pC) * aPC * aPC);
+         int pColor = ColorUtils.swapAlpha(pc1, 255.0f * (1.0f - timePC) * aPC);
+         particle2.update(pColor);
       }
       if (res != null) {
          StencilUtil.renderInStencil(() -> RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + 3.0f, y + 3.0f, x + h - 3.0f, y + h - 3.0f, 3.8f, 0.0f, -1, -1, -1, -1, false, true, false), () -> {
-            GL11.glTranslated(x, y, 0.0);
-            TargetHUD.mc.getTextureManager().bindTexture(res);
+            GL11.glTranslated((double)x, (double)y, (double)0.0);
+            mc.getTextureManager().bindTexture(res);
             RenderUtils.glColor(headCol);
-            Gui.drawScaledCustomSizeModalRect2(3.0f, 3.0f, 8.0f, 8.0f, 8.0f, 8.0f, h - 6.0f, h - 6.0f, 64.0f, 64.0f);
-            GL11.glTranslated(-x, -y, 0.0);
-            return;
+            Gui.drawScaledCustomSizeModalRect2((float)3.0f, (float)3.0f, (float)8.0f, (float)8.0f, (float)8.0f, (float)8.0f, (float)(h - 6.0f), (float)(h - 6.0f), (float)64.0f, (float)64.0f);
+            GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
          }, 1);
          RenderUtils.drawOutsideAndInsideFullRoundedFullGradientShadowRectWithBloomBoolShadowsBoolChangeShadowSize(x + 3.0f, y + 3.0f, x + h - 3.0f, y + h - 3.0f, 3.0f, 1.0f, 1.0f, accent1, ColorUtils.getOverallColorFrom(accent1, accent2, h / w), ColorUtils.getOverallColorFrom(accent1, accent2, h / w), accent1, false, true, true);
-      }
-      else if (ColorUtils.getAlphaFromColor(bgOut1) >= 33) {
+      } else if (ColorUtils.getAlphaFromColor(bgOut1) >= 33) {
          Fonts.noise_24.drawString("?", x + h / 2.0f - 2.5f, y + h / 2.0f - 5.0f, bgOut1);
       }
-      final float rPlus = MathUtils.clamp((hurtRectAnim - hpRectAnim) * (target.getMaxHealth() / 3.0f), 0.0f, 3.0f) * 1.2f;
-      final float cx = x + w - h / 2.0f;
-      final float cy = y + h / 2.0f;
-      final float cr = h / 2.0f - 4.0f + rPlus;
-      final float cwHP = 3.5f + rPlus;
-      final float cwDMG = 2.0f + rPlus;
+      float rPlus = MathUtils.clamp((hurtRectAnim - hpRectAnim) * (target.getMaxHealth() / 3.0f), 0.0f, 3.0f) * 1.2f;
+      float cx = x + w - h / 2.0f;
+      float cy = y + h / 2.0f;
+      float cr = h / 2.0f - 4.0f + rPlus;
+      float cwHP = 3.5f + rPlus;
+      float cwDMG = 2.0f + rPlus;
       this.neomoinCircle(cx, cy, cr, cwHP, cwDMG, aPC, 1.0f, 1.0f, true, hpBgCOut);
       this.neomoinCircle(cx, cy, cr, cwHP, cwDMG, aPC, hpRectAnim, hurtRectAnim, false, 0);
-      final float r = 8.5f;
+      float r = 8.5f;
       RenderUtils.drawSmoothCircle(x + w - h / 2.0f, y + h / 2.0f, r, hpBgC);
-      final String hpStr = String.format("%.1f", hpRectAnim * target.getMaxHealth()).replace(".", ",");
+      String hpStr = String.format("%.1f", Float.valueOf(hpRectAnim * target.getMaxHealth())).replace(".", ",");
       if (ColorUtils.getAlphaFromColor(texCol) >= 33) {
-         Fonts.mntsb_12.drawString(hpStr, x + w - h / 2.0f - Fonts.mntsb_12.getStringWidth(hpStr) / 2, y + h / 2.0f - 1.0f, texCol);
+         Fonts.mntsb_12.drawString(hpStr, x + w - h / 2.0f - (float)(Fonts.mntsb_12.getStringWidth(hpStr) / 2), y + h / 2.0f - 1.0f, texCol);
       }
       if (ColorUtils.getAlphaFromColor(texCol) >= 33) {
          namefont.drawString(this.targetName, x + h + 1.0f, y + 5.0f, texCol);
       }
-      final RenderItem itemRender = TargetHUD.mc.getRenderItem();
+      RenderItem itemRender = mc.getRenderItem();
       RenderHelper.enableGUIStandardItemLighting();
       GlStateManager.enableDepth();
       float xn = h - 5.0f;
       float yn = 16.0f;
       if (stacksCount != 0) {
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + h + 2.5f, y + yn - 1.0f, x + h + 4.0f + 8.5f * stacksCount, y + yn + 9.0f, 2.0f, 1.0f, itemsBgCol, itemsBgCol, itemsBgCol, itemsBgCol, false, true, true);
+         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + h + 2.5f, y + yn - 1.0f, x + h + 4.0f + 8.5f * (float)stacksCount, y + yn + 9.0f, 2.0f, 1.0f, itemsBgCol, itemsBgCol, itemsBgCol, itemsBgCol, false, true, true);
       }
       GlStateManager.enableDepth();
-      GL11.glTranslated(x, y, 0.0);
+      GL11.glTranslated((double)x, (double)y, (double)0.0);
       xn *= 2.0f;
       yn *= 2.0f;
-      GL11.glScaled(0.5, 0.5, 0.5);
-      for (final ItemStack stack2 : stacks) {
-         if (!stack2.isEmpty()) {
+      GL11.glScaled((double)0.5, (double)0.5, (double)0.5);
+      for (ItemStack stack : stacks) {
+         if (!stack.isEmpty()) {
             xn += 17.0f;
          }
-         GL11.glTranslated(xn, yn, 0.0);
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(aPC, aPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
+         GL11.glTranslated((double)xn, (double)yn, (double)0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)aPC, (double)aPC, (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
          itemRender.zLevel = 200.0f;
-         itemRender.renderItemAndEffectIntoGUI(stack2, 0, 0);
+         itemRender.renderItemAndEffectIntoGUI(stack, 0, 0);
          if (ColorUtils.getAlphaFromColor(texCol) >= 32) {
-            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack2, 0, 0, stack2.getCount(), texCol);
+            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack, 0, 0, stack.getCount(), texCol);
          }
-         RenderUtils.drawItemWarnIfLowDur(stack2, 0.0f, 0.0f, aPC, 1.0f);
+         RenderUtils.drawItemWarnIfLowDur(stack, 0.0f, 0.0f, aPC, 1.0f);
          itemRender.zLevel = 0.0f;
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(1.0f / aPC, 1.0f / aPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
-         GL11.glTranslated(-xn, -yn, 0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)(1.0f / aPC), (double)(1.0f / aPC), (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
+         GL11.glTranslated((double)(-xn), (double)(-yn), (double)0.0);
       }
-      GL11.glScaled(2.0, 2.0, 2.0);
+      GL11.glScaled((double)2.0, (double)2.0, (double)2.0);
       xn /= 2.0f;
       yn /= 2.0f;
-      GL11.glTranslated(-x, -y, 0.0);
+      GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
       RenderHelper.disableStandardItemLighting();
       GL11.glPopMatrix();
    }
@@ -900,203 +894,196 @@ public class TargetHUD extends Module {
       GL11.glPopMatrix();
    }
 
-   private void renderBushy(final EntityLivingBase target) {
+   private void renderBushy(EntityLivingBase target) {
+      float hpALLPC;
       GL11.glPushMatrix();
-      final ScaledResolution scale = new ScaledResolution(TargetHUD.mc);
+      ScaledResolution scale = new ScaledResolution(mc);
       int stacksCount = 0;
-      final ItemStack offhand = target.getHeldItemOffhand();
-      final ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
-      final ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
-      final ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
-      final ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
-      final ItemStack inHand = target.getHeldItemMainhand();
-      final ItemStack[] stuff = { offhand, inHand, boots, leggings, body, helm };
-      final ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
-      int j;
-      ItemStack[] array;
-      int length;
-      ItemStack i;
-      for (j = 0, length = (array = stuff).length, j = 0; j < length; ++j) {
-         i = array[j];
-         if (i != null) {
-            i.getItem();
-            stacks.add(i);
-         }
+      ItemStack offhand = target.getHeldItemOffhand();
+      ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
+      ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
+      ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
+      ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
+      ItemStack inHand = target.getHeldItemMainhand();
+      ItemStack[] stuff = new ItemStack[]{offhand, inHand, boots, leggings, body, helm};
+      ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
+      int j = 0;
+      ItemStack[] array = stuff;
+      int length = stuff.length;
+      for (j = 0; j < length; ++j) {
+         ItemStack i = array[j];
+         if (i == null) continue;
+         i.getItem();
+         stacks.add(i);
       }
-      for (final ItemStack stack : stacks) {
-         if (!stack.isEmpty()) {
-            ++stacksCount;
-         }
+      for (ItemStack stack : stacks) {
+         if (stack.isEmpty()) continue;
+         ++stacksCount;
       }
-      final ResourceLocation res = (TargetHUD.OldSkin != null) ? TargetHUD.OldSkin : ((TargetHUD.skin != null) ? TargetHUD.skin : null);
+      ResourceLocation res = OldSkin != null ? OldSkin : (skin != null ? skin : null);
       float alphaPC = this.Scaleclamp();
       alphaPC *= alphaPC;
-      final CFontRenderer nameFont = Fonts.comfortaaBold_12;
-      final float w = TargetHUD.widthHud;
-      final float h = TargetHUD.heightHud;
-      final float x = TargetHUD.xPosHud;
-      final float y = TargetHUD.yPosHud;
-      float texOrItemW = stacksCount * 8.0f + 0.5f;
-      final float strW = (float)nameFont.getStringWidth(this.targetName);
+      CFontRenderer nameFont = Fonts.comfortaaBold_12;
+      float w = widthHud;
+      float h = heightHud;
+      float x = xPosHud;
+      float y = yPosHud;
+      float texOrItemW = (float)stacksCount * 8.0f + 0.5f;
+      float strW = nameFont.getStringWidth(this.targetName);
       if (texOrItemW < strW) {
          texOrItemW = strW;
       }
-      TargetHUD.widthHud = MathUtils.clamp(19.0f + texOrItemW, 60.0f, 1000.0f);
-      TargetHUD.heightHud = 18.0f;
-      final float hpHeight = 1.5f;
-      final int colBG1 = ColorUtils.getColor(0, 0, 0, 180.0f * alphaPC / 2.0f);
-      final int colBG2 = ColorUtils.getColor(0, 0, 0, 100.0f * alphaPC / 2.0f);
-      final int texCol = ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC);
-      GL11.glTranslated(0.0, 10.0f - this.Scale() * 10.0f, 0.0);
+      widthHud = MathUtils.clamp(19.0f + texOrItemW, 60.0f, 1000.0f);
+      heightHud = 18.0f;
+      float hpHeight = 1.5f;
+      int colBG1 = ColorUtils.getColor(0, 0, 0, 180.0f * alphaPC / 2.0f);
+      int colBG2 = ColorUtils.getColor(0, 0, 0, 100.0f * alphaPC / 2.0f);
+      int texCol = ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC);
+      GL11.glTranslated((double)0.0, (double)(10.0f - this.Scale() * 10.0f), (double)0.0);
       if (res != null) {
-         RenderUtils.setupColor(ColorUtils.getOverallColorFrom(-1, ColorUtils.getColor(155, 0, 0), target.hurtTime / 15.0f), 255.0f * alphaPC * alphaPC);
-         GL11.glTranslated(x, y, 0.0);
-         GL11.glDisable(3008);
-         GL11.glEnable(3042);
-         Gui.drawScaledHead(res, 0, 0, 16, 16);
-         GL11.glEnable(3008);
-         GL11.glTranslated(-x, -y, 0.0);
+         RenderUtils.setupColor(ColorUtils.getOverallColorFrom(-1, ColorUtils.getColor(155, 0, 0), (float)target.hurtTime / 15.0f), 255.0f * alphaPC * alphaPC);
+         GL11.glTranslated((double)x, (double)y, (double)0.0);
+         GL11.glDisable((int)3008);
+         GL11.glEnable((int)3042);
+         Gui.drawScaledHead((ResourceLocation)res, (int)0, (int)0, (int)16, (int)16);
+         GL11.glEnable((int)3008);
+         GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
          GlStateManager.resetColor();
          RenderUtils.drawAlphedRect(x, y + 16.0f, x + 16.0f, y + 16.5f, colBG1);
-      }
-      else if (255.0f * alphaPC >= 33.0f) {
+      } else if (255.0f * alphaPC >= 33.0f) {
          Fonts.mntsb_15.drawString("?", x + 5.0f, y + 6.0f, texCol);
       }
-      RenderUtils.drawAlphedRect(x + ((res == null) ? 0 : 16), y, x + w, y + h - hpHeight, colBG1);
+      RenderUtils.drawAlphedRect(x + (float)(res == null ? 0 : 16), y, x + w, y + h - hpHeight, colBG1);
       RenderUtils.drawLightContureRectSmooth(x, y, x + w, y + h, colBG1);
       RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, 0.0f, 4.0f, colBG2, colBG2, colBG2, colBG2, false, false, true);
       if (255.0f * alphaPC >= 33.0f) {
-         final float tw = w / 2.0f - 16.0f + 3.0f - strW / 2.0f + 16.0f + 5.5f;
-         nameFont.drawString(this.targetName, x + tw, y + ((stacksCount == 0) ? 6.5f : 2.5f), texCol);
+         float tw = w / 2.0f - 16.0f + 3.0f - strW / 2.0f + 16.0f + 5.5f;
+         nameFont.drawString(this.targetName, x + tw, y + (stacksCount == 0 ? 6.5f : 2.5f), texCol);
       }
-      final RenderItem itemRender = TargetHUD.mc.getRenderItem();
+      RenderItem itemRender = mc.getRenderItem();
       RenderHelper.enableGUIStandardItemLighting();
       GlStateManager.enableDepth();
       float xn = 7.5f;
       float yn = 7.5f;
-      final int itemsBgCol = ColorUtils.getColor(0, 0, 0, 40.0f * alphaPC);
+      int itemsBgCol = ColorUtils.getColor(0, 0, 0, 40.0f * alphaPC);
       if (stacksCount != 0) {
-         RenderUtils.drawAlphedRect(x + 16.5f, y + 7.5f, x + 16.5f + stacksCount * 8.5f, y + 16.0f, itemsBgCol);
+         RenderUtils.drawAlphedRect(x + 16.5f, y + 7.5f, x + 16.5f + (float)stacksCount * 8.5f, y + 16.0f, itemsBgCol);
       }
       GlStateManager.enableDepth();
-      GL11.glTranslated(x, y, 0.0);
+      GL11.glTranslated((double)x, (double)y, (double)0.0);
       xn *= 2.0f;
       yn *= 2.0f;
-      GL11.glScaled(0.5, 0.5, 0.5);
-      for (final ItemStack stack2 : stacks) {
-         if (!stack2.isEmpty()) {
+      GL11.glScaled((double)0.5, (double)0.5, (double)0.5);
+      for (ItemStack stack : stacks) {
+         if (!stack.isEmpty()) {
             xn += 17.0f;
          }
-         GL11.glTranslated(xn, yn, 0.0);
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(alphaPC, alphaPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
+         GL11.glTranslated((double)xn, (double)yn, (double)0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)alphaPC, (double)alphaPC, (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
          itemRender.zLevel = 200.0f;
-         itemRender.renderItemAndEffectIntoGUI(stack2, 0, 0);
+         itemRender.renderItemAndEffectIntoGUI(stack, 0, 0);
          if (ColorUtils.getAlphaFromColor(texCol) >= 32) {
-            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack2, 0, 0, stack2.getCount(), texCol);
+            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack, 0, 0, stack.getCount(), texCol);
          }
-         RenderUtils.drawItemWarnIfLowDur(stack2, 0.0f, 0.0f, alphaPC, 1.0f);
+         RenderUtils.drawItemWarnIfLowDur(stack, 0.0f, 0.0f, alphaPC, 1.0f);
          itemRender.zLevel = 0.0f;
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(1.0f / alphaPC, 1.0f / alphaPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
-         GL11.glTranslated(-xn, -yn, 0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)(1.0f / alphaPC), (double)(1.0f / alphaPC), (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
+         GL11.glTranslated((double)(-xn), (double)(-yn), (double)0.0);
       }
-      GL11.glScaled(2.0, 2.0, 2.0);
+      GL11.glScaled((double)2.0, (double)2.0, (double)2.0);
       xn /= 2.0f;
       yn /= 2.0f;
-      GL11.glTranslated(-x, -y, 0.0);
+      GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
       RenderHelper.disableStandardItemLighting();
       this.absorbAnim.to = target.getAbsorptionAmount();
-      final float hpMax = target.getMaxHealth() + this.absorbAnim.getAnim();
-      final float hpALLPC2;
-      float hpALLPC = hpALLPC2 = (target.smoothHealth.getAnim() + this.absorbAnim.getAnim()) / hpMax;
-      final float absALLPC = this.absorbAnim.getAnim() / hpMax;
+      float hpMax = target.getMaxHealth() + this.absorbAnim.getAnim();
+      float hpALLPC2 = hpALLPC = (target.smoothHealth.getAnim() + this.absorbAnim.getAnim()) / hpMax;
+      float absALLPC = this.absorbAnim.getAnim() / hpMax;
       hpALLPC -= absALLPC;
-      final String hpStr = (target.getHealth() == 0.0f) ? "" : (String.format("%.1f", hpALLPC2 * hpMax) + "hp");
-      final float hOf = TargetHUD.heightHud - hpHeight;
-      final float offsetX = 0.0f;
-      final float offsetY = 0.0f;
-      final float offsetDC = 0.0f;
-      final float hpYMin = y + hOf + offsetY;
-      final float hpYMax = y + h - offsetY;
-      final float hpMinX = x + offsetX;
-      final float hpMaxX = x + w - offsetX;
-      final float hpX1 = hpMinX + (w - offsetX * 2.0f) * hpALLPC;
-      final float hpX2 = hpMinX + (w - offsetX * 2.0f) * hpALLPC2;
-      final int hpCol = ColorUtils.getColor(0, 255, 120, 255.0f * alphaPC);
-      final int absCol = ColorUtils.getColor(255, 220, 0, 255.0f * alphaPC);
-      final float grandX1 = MathUtils.clamp(hpX1 - offsetDC, hpMinX, hpMaxX);
-      final float grandX2 = MathUtils.clamp(hpX1 + offsetDC, hpMinX, hpMaxX);
+      String hpStr = target.getHealth() == 0.0f ? "" : String.format("%.1f", Float.valueOf(hpALLPC2 * hpMax)) + "hp";
+      float hOf = heightHud - hpHeight;
+      float offsetX = 0.0f;
+      float offsetY = 0.0f;
+      float offsetDC = 0.0f;
+      float hpYMin = y + hOf + offsetY;
+      float hpYMax = y + h - offsetY;
+      float hpMinX = x + offsetX;
+      float hpMaxX = x + w - offsetX;
+      float hpX1 = hpMinX + (w - offsetX * 2.0f) * hpALLPC;
+      float hpX2 = hpMinX + (w - offsetX * 2.0f) * hpALLPC2;
+      int hpCol = ColorUtils.getColor(0, 255, 120, 255.0f * alphaPC);
+      int absCol = ColorUtils.getColor(255, 220, 0, 255.0f * alphaPC);
+      float grandX1 = MathUtils.clamp(hpX1 - offsetDC, hpMinX, hpMaxX);
+      float grandX2 = MathUtils.clamp(hpX1 + offsetDC, hpMinX, hpMaxX);
       RenderUtils.drawAlphedRect(hpMinX, hpYMin, grandX1, hpYMax, hpCol);
       RenderUtils.drawAlphedRect(MathUtils.clamp(hpX1 + offsetDC, hpMinX, hpMaxX), hpYMin, hpX2, hpYMax, absCol);
       RenderUtils.drawAlphedRect(hpX2, hpYMin, x + w, hpYMax, colBG1);
       GL11.glPopMatrix();
    }
 
-   private void renderSubtle(final EntityLivingBase target) {
-      final ResourceLocation res = (TargetHUD.OldSkin != null) ? TargetHUD.OldSkin : ((TargetHUD.skin != null) ? TargetHUD.skin : null);
+   private void renderSubtle(EntityLivingBase target) {
+      ResourceLocation res = OldSkin != null ? OldSkin : (skin != null ? skin : null);
       this.absorbAnim.to = target.getAbsorptionAmount();
-      final float targetHealth = target.getSmoothHealth() + this.absorbAnim.getAnim();
-      final float targetHealtMax = target.getMaxHealth() + this.absorbAnim.anim;
-      final float targetHealthPC = Math.max(Math.min(targetHealth / targetHealtMax, 1.0f), 0.0f);
-      final String hpStr = String.format("%.1f", targetHealth).replace(".0", "") + "HP";
-      final CFontRenderer hpFont = Fonts.comfortaaBold_12;
+      float targetHealth = target.getSmoothHealth() + this.absorbAnim.getAnim();
+      float targetHealtMax = target.getMaxHealth() + this.absorbAnim.anim;
+      float targetHealthPC = Math.max(Math.min(targetHealth / targetHealtMax, 1.0f), 0.0f);
+      String hpStr = String.format("%.1f", Float.valueOf(targetHealth)).replace(".0", "") + "HP";
+      CFontRenderer hpFont = Fonts.comfortaaBold_12;
       if (target.getDisplayName() != null) {
-         this.targetName = target.getDisplayName().getFormattedText().replace("  ", " ").replace("§l", "").replace("[]", "").replace("§k", "").replace("§m", "").replace("§n", "").replace("§o", "");
+         this.targetName = target.getDisplayName().getFormattedText().replace("  ", " ").replace("\u00a7l", "").replace("[]", "").replace("\u00a7k", "").replace("\u00a7m", "").replace("\u00a7n", "").replace("\u00a7o", "");
       }
       int stacksCount = 0;
-      final ItemStack offhand = target.getHeldItemOffhand();
-      final ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
-      final ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
-      final ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
-      final ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
-      final ItemStack inHand = target.getHeldItemMainhand();
-      final ItemStack[] stuff = { offhand, inHand, boots, leggings, body, helm };
-      final ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
-      int j;
-      ItemStack[] array;
-      int length;
-      ItemStack i;
-      for (j = 0, length = (array = stuff).length, j = 0; j < length; ++j) {
-         i = array[j];
-         if (i != null) {
-            i.getItem();
-            stacks.add(i);
-         }
+      ItemStack offhand = target.getHeldItemOffhand();
+      ItemStack boots = target.getItemStackFromSlot(EntityEquipmentSlot.FEET);
+      ItemStack leggings = target.getItemStackFromSlot(EntityEquipmentSlot.LEGS);
+      ItemStack body = target.getItemStackFromSlot(EntityEquipmentSlot.CHEST);
+      ItemStack helm = target.getItemStackFromSlot(EntityEquipmentSlot.HEAD);
+      ItemStack inHand = target.getHeldItemMainhand();
+      ItemStack[] stuff = new ItemStack[]{offhand, inHand, boots, leggings, body, helm};
+      ArrayList<ItemStack> stacks = new ArrayList<ItemStack>();
+      int j = 0;
+      ItemStack[] array = stuff;
+      int length = stuff.length;
+      for (j = 0; j < length; ++j) {
+         ItemStack i = array[j];
+         if (i == null) continue;
+         i.getItem();
+         stacks.add(i);
       }
-      for (final ItemStack stack : stacks) {
-         if (!stack.isEmpty()) {
-            ++stacksCount;
-         }
+      for (ItemStack stack : stacks) {
+         if (stack.isEmpty()) continue;
+         ++stacksCount;
       }
       float alphaPC = this.Scaleclamp();
       alphaPC *= alphaPC;
-      final CFontRenderer nameFont = Fonts.comfortaaBold_12;
-      final float w = TargetHUD.widthHud;
-      final float h = TargetHUD.heightHud;
-      final float x = (int)(TargetHUD.xPosHud * 2.0f) / 2.0f;
-      final float y = TargetHUD.yPosHud;
-      float texOrItemW = stacksCount * 8.0f + 0.5f;
-      final float strW = (float)(nameFont.getStringWidth(this.targetName) - 22);
+      CFontRenderer nameFont = Fonts.comfortaaBold_12;
+      float w = widthHud;
+      float h = heightHud;
+      float x = (float)((int)(xPosHud * 2.0f)) / 2.0f;
+      float y = yPosHud;
+      float texOrItemW = (float)stacksCount * 8.0f + 0.5f;
+      float strW = nameFont.getStringWidth(this.targetName) - 22;
       if (texOrItemW < strW) {
          texOrItemW = strW;
       }
-      TargetHUD.widthHud = MathUtils.clamp(h + 16.0f + hpFont.getStringWidth(hpStr) + texOrItemW, 100.0f, 1000.0f);
-      TargetHUD.heightHud = 34.0f;
-      final int col1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 40.0f * alphaPC);
-      final int col2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 60.0f * alphaPC);
-      final int col3 = ColorUtils.swapAlpha(ClientColors.getColor2(0), 60.0f * alphaPC);
-      final int col4 = ColorUtils.swapAlpha(ClientColors.getColor1(972), 60.0f * alphaPC);
-      final int colS1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 50.0f * alphaPC);
-      final int colS2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 50.0f * alphaPC);
-      final int colS3 = ColorUtils.swapAlpha(ClientColors.getColor2(0), 50.0f * alphaPC);
-      final int colS4 = ColorUtils.swapAlpha(ClientColors.getColor1(972), 50.0f * alphaPC);
-      final float round = 6.0f;
-      final float shadow = 7.0f * alphaPC;
-      final float blur = 1.0f + 3.0f * alphaPC;
-      if (alphaPC < 0.1) {
+      widthHud = MathUtils.clamp(h + 16.0f + (float)hpFont.getStringWidth(hpStr) + texOrItemW, 100.0f, 1000.0f);
+      heightHud = 34.0f;
+      int col1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 40.0f * alphaPC);
+      int col2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 60.0f * alphaPC);
+      int col3 = ColorUtils.swapAlpha(ClientColors.getColor2(0), 60.0f * alphaPC);
+      int col4 = ColorUtils.swapAlpha(ClientColors.getColor1(972), 60.0f * alphaPC);
+      int colS1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 50.0f * alphaPC);
+      int colS2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 50.0f * alphaPC);
+      int colS3 = ColorUtils.swapAlpha(ClientColors.getColor2(0), 50.0f * alphaPC);
+      int colS4 = ColorUtils.swapAlpha(ClientColors.getColor1(972), 50.0f * alphaPC);
+      float round = 6.0f;
+      float shadow = 7.0f * alphaPC;
+      float blur = 1.0f + 3.0f * alphaPC;
+      if ((double)alphaPC < 0.1) {
          return;
       }
       GL11.glPushMatrix();
@@ -1105,46 +1092,45 @@ public class TargetHUD extends Module {
       RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x + w, y + h, round, shadow, colS1, colS2, colS3, colS4, true, false, true);
       GL11.glPushMatrix();
       RenderUtils.customScaledObject2D(x, y, w, h, 1.0f / this.Scale());
-      final float aPC = alphaPC;
+      float aPC = alphaPC;
       GaussianBlur.drawBlur(blur, () -> RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x + w * (1.0f - aPC) / 2.0f, y + h * (1.0f - aPC) / 2.0f, x + w - w * (1.0f - aPC) / 2.0f, y + h - h * (1.0f - aPC) / 2.0f, round * aPC, 0.0f, -1, -1, -1, -1, false, true, false));
       GL11.glPopMatrix();
       RenderUtils.drawInsideFullRoundedFullGradientShadowRectWithBloomBool(x, y, x + w, y + h, round - 2.0f, 2.0f, colS1, colS2, colS3, colS4, true);
-      final int headSize = 24;
-      final float headX = x + 5.0f;
-      final float headY = y + 5.0f;
+      int headSize = 24;
+      float headX = x + 5.0f;
+      float headY = y + 5.0f;
       if (res == null) {
-         RenderUtils.drawRect(headX, headY, headX + headSize, headY + headSize, ColorUtils.getColor(0, 0, 0, 90.0f * alphaPC));
-         Fonts.comfortaaBold_18.drawString("?", x + headSize / 2.0f + 2.5f, y + headSize / 2.0f + 2.0f, ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
-      }
-      else {
+         RenderUtils.drawRect(headX, headY, headX + (float)headSize, headY + (float)headSize, ColorUtils.getColor(0, 0, 0, 90.0f * alphaPC));
+         Fonts.comfortaaBold_18.drawString("?", x + (float)headSize / 2.0f + 2.5f, y + (float)headSize / 2.0f + 2.0f, ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
+      } else {
          GlStateManager.enableTexture2D();
-         RenderUtils.glColor(ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ColorUtils.getColor(255, 190, 190), MathUtils.clamp(target.hurtTime - TargetHUD.mc.getRenderPartialTicks(), 0.0f, 10.0f) / 10.0f), 255.0f * alphaPC));
-         TargetHUD.mc.getTextureManager().bindTexture(res);
-         GL11.glTranslated(headX, headY, 0.0);
-         Gui.drawScaledCustomSizeModalRect(0.0f, 0.0f, 8.0f, 8.0f, 8.0f, 8.0f, (float)headSize, (float)headSize, 64.0f, 64.0f);
-         Gui.drawScaledCustomSizeModalRect(-2.0f, -2.0f, 39.0f, 8.0f, 10.0f, 8.0f, headSize + 4.0f, headSize + 4.0f, 64.0f, 64.0f);
-         GL11.glTranslated(-headX, -headY, 0.0);
+         RenderUtils.glColor(ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(-1, ColorUtils.getColor(255, 190, 190), MathUtils.clamp((float)target.hurtTime - mc.getRenderPartialTicks(), 0.0f, 10.0f) / 10.0f), 255.0f * alphaPC));
+         mc.getTextureManager().bindTexture(res);
+         GL11.glTranslated((double)headX, (double)headY, (double)0.0);
+         Gui.drawScaledCustomSizeModalRect((float)0.0f, (float)0.0f, (float)8.0f, (float)8.0f, (float)8.0f, (float)8.0f, (float)headSize, (float)headSize, (float)64.0f, (float)64.0f);
+         Gui.drawScaledCustomSizeModalRect((float)-2.0f, (float)-2.0f, (float)39.0f, (float)8.0f, (float)10.0f, (float)8.0f, (float)((float)headSize + 4.0f), (float)((float)headSize + 4.0f), (float)64.0f, (float)64.0f);
+         GL11.glTranslated((double)(-headX), (double)(-headY), (double)0.0);
          GlStateManager.resetColor();
          if (target.getHealth() == 0.0f) {
-            RenderUtils.drawRect(x + 3.0f, y + 10.0f, x + headSize + 8.0f, y + h - 11.0f, ColorUtils.getColor(0, 0, 0, 195.0f * alphaPC));
-            Fonts.mntsb_18.drawStringWithShadow("DEAD", x + 3.5f, y + headSize / 2.0f + 2.0f, ColorUtils.getColor(255, 65, 65, 255.0f * alphaPC));
+            RenderUtils.drawRect(x + 3.0f, y + 10.0f, x + (float)headSize + 8.0f, y + h - 11.0f, ColorUtils.getColor(0, 0, 0, 195.0f * alphaPC));
+            Fonts.mntsb_18.drawStringWithShadow("DEAD", x + 3.5f, y + (float)headSize / 2.0f + 2.0f, ColorUtils.getColor(255, 65, 65, 255.0f * alphaPC));
          }
       }
-      final float postHeadX = headX + headSize + 4.0f;
+      float postHeadX = headX + (float)headSize + 4.0f;
       RenderUtils.drawTwoAlphedSideways(postHeadX, y + 4.5f, postHeadX + 2.0f, y + h - 4.5f, ColorUtils.getColor(0, 0, 0, 70.0f * alphaPC), 0, false);
       if (255.0f * alphaPC >= 33.0f) {
-         final float nameTextX = postHeadX + 7.0f + (w - (postHeadX - x) - 12.0f) / 2.0f - nameFont.getStringWidth(this.targetName) / 2.0f;
+         float nameTextX = postHeadX + 7.0f + (w - (postHeadX - x) - 12.0f) / 2.0f - (float)nameFont.getStringWidth(this.targetName) / 2.0f;
          nameFont.drawStringWithShadow(this.targetName, nameTextX, y + 5.5f, ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
       }
-      final float hpWidth = w - (postHeadX - x) - 12.0f;
-      final float hpX1 = postHeadX + 7.0f;
-      final float hpX2 = hpX1 + hpWidth * targetHealthPC;
-      final float hpX3 = hpX1 + hpWidth;
-      final int hpCol1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 255.0f * alphaPC);
-      final int hpCol2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 255.0f * alphaPC);
-      final int hpBGCol = ColorUtils.swapAlpha(0, 65.0f * alphaPC);
-      final float hpRoundRect = 1.5f;
-      final float hpShadowRect = 1.0f;
+      float hpWidth = w - (postHeadX - x) - 12.0f;
+      float hpX1 = postHeadX + 7.0f;
+      float hpX2 = hpX1 + hpWidth * targetHealthPC;
+      float hpX3 = hpX1 + hpWidth;
+      int hpCol1 = ColorUtils.swapAlpha(ClientColors.getColor1(0), 255.0f * alphaPC);
+      int hpCol2 = ColorUtils.swapAlpha(ClientColors.getColor2(-324), 255.0f * alphaPC);
+      int hpBGCol = ColorUtils.swapAlpha(0, 65.0f * alphaPC);
+      float hpRoundRect = 1.5f;
+      float hpShadowRect = 1.0f;
       RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(hpX1 - 0.5f, y + h - 9.0f, hpX3 + 0.5f, y + h - 4.5f, hpRoundRect, hpShadowRect + 0.5f, hpBGCol, hpBGCol, hpBGCol, hpBGCol, false, true, true);
       StencilUtil.initStencilToWrite();
       RenderUtils.drawRect(hpX1 - 0.5f, y + h - 12.0f, hpX2 + 0.5f, y + h - 4.5f, -1);
@@ -1154,46 +1140,46 @@ public class TargetHUD extends Module {
       if (255.0f * alphaPC >= 33.0f) {
          hpFont.drawString(hpStr, postHeadX + 6.0f, y + 16.5f, ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
       }
-      final float postHpTextX = postHeadX + 7.5f + hpFont.getStringWidth(hpStr);
+      float postHpTextX = postHeadX + 7.5f + (float)hpFont.getStringWidth(hpStr);
       if (stacksCount > 0) {
          RenderUtils.drawVGradientRect(postHpTextX + 0.5f, y + 13.0f, postHpTextX + 1.0f, y + 22.0f - 4.0f, ColorUtils.getColor(255, 255, 255, 10.0f * alphaPC), ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
          RenderUtils.drawVGradientRect(postHpTextX + 0.5f, y + 13.0f + 4.0f, postHpTextX + 1.0f, y + 22.0f, ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC), ColorUtils.getColor(255, 255, 255, 10.0f * alphaPC));
       }
-      final RenderItem itemRender = TargetHUD.mc.getRenderItem();
+      RenderItem itemRender = mc.getRenderItem();
       RenderHelper.enableGUIStandardItemLighting();
       GlStateManager.enableDepth();
       float xn = postHpTextX - x - 5.5f;
       float yn = 13.0f;
-      final int itemsBgCol = ColorUtils.getColor(0, 0, 0, 40.0f * alphaPC);
+      int itemsBgCol = ColorUtils.getColor(0, 0, 0, 40.0f * alphaPC);
       GlStateManager.enableDepth();
-      GL11.glTranslated(x, y, 0.0);
+      GL11.glTranslated((double)x, (double)y, (double)0.0);
       xn *= 2.0f;
       yn *= 2.0f;
-      GL11.glScaled(0.5, 0.5, 0.5);
-      for (final ItemStack stack2 : stacks) {
-         if (!stack2.isEmpty()) {
+      GL11.glScaled((double)0.5, (double)0.5, (double)0.5);
+      for (ItemStack stack : stacks) {
+         if (!stack.isEmpty()) {
             xn += 17.0f;
          }
-         GL11.glTranslated(xn, yn, 0.0);
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(alphaPC, alphaPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
+         GL11.glTranslated((double)xn, (double)yn, (double)0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)alphaPC, (double)alphaPC, (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
          itemRender.zLevel = 200.0f;
-         itemRender.renderItemAndEffectIntoGUI(stack2, 0, 0);
+         itemRender.renderItemAndEffectIntoGUI(stack, 0, 0);
          if (255.0f * alphaPC >= 33.0f) {
-            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack2, 0, 0, stack2.getCount(), ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
+            itemRender.renderItemOverlayIntoGUIWithTextColor(Fonts.minecraftia_16, stack, 0, 0, stack.getCount(), ColorUtils.getColor(255, 255, 255, 255.0f * alphaPC));
          }
-         RenderUtils.drawItemWarnIfLowDur(stack2, 0.0f, 0.0f, alphaPC, 1.0f);
+         RenderUtils.drawItemWarnIfLowDur(stack, 0.0f, 0.0f, alphaPC, 1.0f);
          itemRender.zLevel = 0.0f;
-         GL11.glTranslated(8.0, 8.0, 0.0);
-         GL11.glScaled(1.0f / alphaPC, 1.0f / alphaPC, 1.0);
-         GL11.glTranslated(-8.0, -8.0, 0.0);
-         GL11.glTranslated(-xn, -yn, 0.0);
+         GL11.glTranslated((double)8.0, (double)8.0, (double)0.0);
+         GL11.glScaled((double)(1.0f / alphaPC), (double)(1.0f / alphaPC), (double)1.0);
+         GL11.glTranslated((double)-8.0, (double)-8.0, (double)0.0);
+         GL11.glTranslated((double)(-xn), (double)(-yn), (double)0.0);
       }
-      GL11.glScaled(2.0, 2.0, 2.0);
+      GL11.glScaled((double)2.0, (double)2.0, (double)2.0);
       xn /= 2.0f;
       yn /= 2.0f;
-      GL11.glTranslated(-x, -y, 0.0);
+      GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
       RenderHelper.disableStandardItemLighting();
       GL11.glPopMatrix();
    }
@@ -1311,19 +1297,9 @@ public class TargetHUD extends Module {
          RenderUtils.drawLightContureRectSmooth((double)hpRect1X, (double)hpRectY, (double)hpRect3X2, (double)hpRectY2, bgCol);
          int textCol = ColorUtils.swapAlpha(headColors[0], 255.0F * alphaF);
          if (ColorUtils.getAlphaFromColor(textCol) >= 33) {
-            GlStateManager.tryBlendFuncSeparate(
-               GlStateManager.SourceFactor.SRC_ALPHA,
-               GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA,
-               GlStateManager.SourceFactor.ONE,
-               GlStateManager.DestFactor.ZERO
-            );
+            GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_CONSTANT_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
             nameFont.drawStringWithShadow(this.targetName, (double)(x + h - (exts + hpLineH) + 1.0F), (double)(y + 4.0F), textCol);
-            GlStateManager.tryBlendFuncSeparate(
-               GlStateManager.SourceFactor.SRC_ALPHA,
-               GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-               GlStateManager.SourceFactor.ONE,
-               GlStateManager.DestFactor.ZERO
-            );
+            GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          }
 
          float headX = x + exts;
@@ -1478,7 +1454,11 @@ public class TargetHUD extends Module {
    public void onRender2D(EventRender2D event) {
       EntityLivingBase target = getTarget();
       this.updatePosition(event);
-      float curScale = target == null ? 0.0F : 1.0F;
+      double pDX = (double)Math.abs(xPosHud + widthHud / 2.0F - this.THudX.getFloat() * (float)event.getResolution().getScaledWidth());
+      double pDY = (double)Math.abs(yPosHud + heightHud / 2.0F - this.THudY.getFloat() * (float)event.getResolution().getScaledHeight());
+      float curScale = target == null && Math.sqrt(pDX * pDX + pDY * pDY) < Math.sqrt((double)(widthHud * widthHud + heightHud * heightHud)) / 2.0
+         ? 0.0F
+         : 1.0F;
       if (curScale == 0.0F) {
          if (this.Scale.to == 1.0F) {
             this.Scale.to = (double)this.Scale.getAnim() > 0.995 ? 1.15F : 0.0F;
@@ -1536,8 +1516,8 @@ public class TargetHUD extends Module {
          }
 
          this.targetName = curTarget.getName().replace("  ", " ");
-         String var4 = this.Mode.currentMode;
-         switch (var4) {
+         String var8 = this.Mode.currentMode;
+         switch (var8) {
             case "Light":
                this.renderLight(curTarget);
                break;

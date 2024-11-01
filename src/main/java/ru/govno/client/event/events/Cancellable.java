@@ -1,7 +1,8 @@
 package ru.govno.client.event.events;
 
 public interface Cancellable {
-   boolean isCancelled();
+    public boolean isCancelled();
 
-   void setCancelled(boolean var1);
+    public void setCancelled(boolean var1);
 }
+

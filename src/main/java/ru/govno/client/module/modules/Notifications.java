@@ -7,6 +7,7 @@ import org.lwjgl.opengl.GL11;
 import ru.govno.client.event.EventTarget;
 import ru.govno.client.event.events.EventRender2D;
 import ru.govno.client.module.Module;
+import ru.govno.client.module.modules.Hud;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.newfont.CFontRenderer;
 import ru.govno.client.newfont.Fonts;
@@ -15,175 +16,162 @@ import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
-public class Notifications extends Module {
-   public static Module get;
-   ModeSettings Mode;
+public class Notifications
+extends Module {
+    public static Notifications get;
+    public ModeSettings Mode;
 
-   public Notifications() {
-      super("Notifications", 0, Module.Category.RENDER);
-      get = this;
-      this.settings.add(this.Mode = new ModeSettings("Mode", "Colored", this, new String[]{"Colored", "Dark"}));
-   }
+    public Notifications() {
+        super("Notifications", 0, Module.Category.RENDER);
+        get = this;
+        this.Mode = new ModeSettings("Mode", "Colored", this, new String[]{"Colored", "Dark"});
+        this.settings.add(this.Mode);
+    }
 
-   @EventTarget
-   public void onRender2D(EventRender2D event) {
-      drawNotifyS();
-   }
+    @EventTarget
+    public void onRender2D(EventRender2D event) {
+        Notifications.drawNotifyS();
+    }
 
-   public static void drawNotifyS() {
-      if (Notifications.Notify.notifications.size() != 0) {
-         int yDist = 1;
-         String mode = get.currentMode("Mode");
+    public static void drawNotifyS() {
+        if (Notify.notifications.isEmpty()) {
+            return;
+        }
+        int yDist = Hud.get.isActived() && Hud.get.Information.getBool() && Hud.get.Info.getMode().equalsIgnoreCase("Plastic") ? 2 : 1;
+        for (Notification notification : Notify.notifications) {
+            Notify.draw(notification, yDist, Notifications.get.Mode.getMode());
+            ++yDist;
+        }
+        Notify.notifications.removeIf(huy -> System.currentTimeMillis() - huy.getTime() >= huy.max_time);
+    }
 
-         for (Notifications.Notification notification : Notifications.Notify.notifications) {
-            Notifications.Notify.draw(notification, yDist, mode);
-            yDist++;
-         }
+    public class Notify {
+        public static ArrayList<Notification> notifications = new ArrayList();
 
-         Notifications.Notify.notifications.removeIf(huy -> System.currentTimeMillis() - huy.getTime() >= huy.max_time);
-      }
-   }
+        public static void spawnNotify(String message, type usedtype) {
+            long maxTime = 1200 * (usedtype == type.STAFF ? 2 : 1);
+            notifications.add(new Notification(message, maxTime, usedtype));
+        }
 
-   static class Notification {
-      private final AnimationUtils animY = new AnimationUtils(1.0F, 1.1F, 0.075F);
-      private final AnimationUtils animX = new AnimationUtils(0.0F, 1.0F, 0.075F);
-      private final String message;
-      private final long time;
-      private final long max_time;
-      Notifications.type type;
-
-      public Notification(String message, long max_time, Notifications.type type) {
-         this.max_time = max_time;
-         this.message = message;
-         this.time = System.currentTimeMillis();
-         this.type = type;
-      }
-
-      public long getTime() {
-         return this.time;
-      }
-
-      public int getColorize() {
-         return this.type.color;
-      }
-
-      public long getMax_Time() {
-         return this.max_time;
-      }
-
-      public String getMessage() {
-         return this.message;
-      }
-   }
-
-   public class Notify {
-      public static ArrayList<Notifications.Notification> notifications = new ArrayList<>();
-
-      public static void spawnNotify(String message, Notifications.type usedtype) {
-         long maxTime = (long)(1500 * (usedtype == Notifications.type.STAFF ? 3 : 1));
-         notifications.add(new Notifications.Notification(message, maxTime, usedtype));
-      }
-
-      static void drawIcon(Notifications.type type, float alpha, float x, float y, float size, String mode) {
-         if (mode.equalsIgnoreCase("Dark")) {
-            int c1 = ColorUtils.swapAlpha(type.color, (float)ColorUtils.getAlphaFromColor(type.color));
-            int c2 = ColorUtils.swapAlpha(type.color, (float)ColorUtils.getAlphaFromColor(type.color) / 4.0F);
-            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-               x - size / 2.0F, y - size / 2.0F, x + size / 2.0F, y + size / 2.0F, 0.0F, 3.0F * alpha, c2, c2, c2, c2, true, false, true
-            );
-            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-               x - size / 2.0F, y - size / 2.0F, x + size / 2.0F, y + size / 2.0F, 0.0F, 0.0F, c1, c1, c1, c1, true, true, false
-            );
-         } else {
-            ResourceLocation icon = new ResourceLocation("vegaline/modules/notifications/icons/" + type.icon.toLowerCase() + ".png");
+        static void drawIcon(type type2, float alpha, float x, float y, float size, String mode) {
+            if (mode.equalsIgnoreCase("Dark")) {
+                int c1 = ColorUtils.swapAlpha(type2.color, ColorUtils.getAlphaFromColor(type2.color));
+                int c2 = ColorUtils.swapAlpha(type2.color, (float)ColorUtils.getAlphaFromColor(type2.color) / 4.0f);
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x - size / 2.0f, y - size / 2.0f, x + size / 2.0f, y + size / 2.0f, 0.0f, 3.0f * alpha, c2, c2, c2, c2, true, false, true);
+                RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x - size / 2.0f, y - size / 2.0f, x + size / 2.0f, y + size / 2.0f, 0.0f, 0.0f, c1, c1, c1, c1, true, true, false);
+                return;
+            }
+            ResourceLocation icon = new ResourceLocation("vegaline/modules/notifications/icons/" + type2.icon.toLowerCase().replace(" ", "_") + ".png");
             if (icon != null) {
-               RenderUtils.drawImageWithAlpha(icon, x, y, size, size, ColorUtils.getFixedWhiteColor(), (int)(255.0F * alpha));
+                RenderUtils.drawImageWithAlpha(icon, x, y, size, size, ColorUtils.getFixedWhiteColor(), (int)(255.0f * alpha));
             }
-         }
-      }
+        }
 
-      static void draw(Notifications.Notification notify, int index, String mode) {
-         notify.animY.speed = 0.15F;
-         notify.animX.speed = 0.075F;
-         boolean isDark = mode.equalsIgnoreCase("Dark");
-         ScaledResolution sr = new ScaledResolution(Module.mc);
-         CFontRenderer font = isDark ? Fonts.comfortaaBold_16 : Fonts.noise_16;
-         Notifications.type type = notify.type;
-         String text = notify.getMessage();
-         String massage = notify.type.icon + (notify.type.equals(Notifications.type.STAFF) ? "" : "d");
-         int colorize = notify.getColorize();
-         int colorize2 = ColorUtils.getColor(
-            (int)MathUtils.clamp((float)ColorUtils.getRedFromColor(notify.getColorize()) * 1.75F, 0.0F, 255.0F),
-            (int)MathUtils.clamp((float)ColorUtils.getGreenFromColor(notify.getColorize()) * 1.75F, 0.0F, 255.0F),
-            (int)MathUtils.clamp((float)ColorUtils.getBlueFromColor(notify.getColorize()) * 1.75F, 0.0F, 255.0F)
-         );
-         float max_time = (float)notify.getMax_Time();
-         float time = (float)(System.currentTimeMillis() - notify.getTime());
-         String surf = isDark ? " " : " | ";
-         String surf2 = isDark ? "§r§f §r" : "§r§f | §r";
-         if (time < 50.0F) {
-            notify.animY.setAnim((float)index);
-         }
-
-         if (time + 100.0F > max_time) {
-            notify.animX.speed = 0.125F;
-            notify.animX.to = 0.0F;
-            if (notify.animY.getAnim() == 1.0F) {
-               notify.animY.setAnim((float)index - 1.5F);
+        static void draw(Notification notify, int index, String mode) {
+            String surf2;
+            notify.animY.speed = 0.15f;
+            notify.animX.speed = 0.075f;
+            boolean isDark = mode.equalsIgnoreCase("Dark");
+            ScaledResolution sr = new ScaledResolution(Module.mc);
+            CFontRenderer font = isDark ? Fonts.comfortaaBold_16 : Fonts.noise_16;
+            type type2 = notify.type;
+            String text = notify.getMessage();
+            String massage = notify.type.icon;
+            int colorize = notify.getColorize();
+            int colorize2 = ColorUtils.getColor((int)MathUtils.clamp((float)ColorUtils.getRedFromColor(notify.getColorize()) * 1.75f, 0.0f, 255.0f), (int)MathUtils.clamp((float)ColorUtils.getGreenFromColor(notify.getColorize()) * 1.75f, 0.0f, 255.0f), (int)MathUtils.clamp((float)ColorUtils.getBlueFromColor(notify.getColorize()) * 1.75f, 0.0f, 255.0f));
+            float max_time = notify.getMax_Time();
+            float time = System.currentTimeMillis() - notify.getTime();
+            String surf = isDark ? " " : " | ";
+            String string = surf2 = isDark ? "\u00a7r\u00a7f \u00a7r" : "\u00a7r\u00a7f | \u00a7r";
+            if (time < 50.0f) {
+                notify.animY.setAnim(index);
             }
-         } else {
-            notify.animX.to = 1.0F;
-            if (index - 1 >= 0) {
-               notify.animY.to = (float)(index - 1);
+            if (time + 100.0f > max_time) {
+                notify.animX.speed = 0.125f;
+                notify.animX.to = 0.0f;
+                if (notify.animY.getAnim() == 1.0f) {
+                    notify.animY.setAnim((float)index - 1.5f);
+                }
+            } else {
+                notify.animX.to = 1.0f;
+                if (index - 1 >= 0) {
+                    notify.animY.to = index - 1;
+                }
             }
-         }
+            float width = (isDark ? 18.5f : 24.0f) + (float)font.getStringWidth(text + surf + massage);
+            float w = width * notify.animX.getAnim();
+            float hStep = (float)(isDark ? 17 : 20) * notify.animY.getAnim();
+            float expX = 3.5f;
+            float expY = 4.5f;
+            float x = (float)sr.getScaledWidth() - w - 3.5f;
+            float y = (float)(sr.getScaledHeight() - 16) - 4.5f - hStep;
+            float x2 = (float)sr.getScaledWidth() - 3.5f + width - width * notify.animX.getAnim();
+            float y2 = (float)sr.getScaledHeight() - 4.5f - hStep;
+            float extenderOut = 0.0f;
+            if ((double)(time / max_time) > 0.8) {
+                extenderOut = (time / max_time - 0.8f) * (float)(isDark ? 10 : 80);
+            }
+            float alphaPercent = notify.animX.getAnim();
+            int c1 = ColorUtils.swapAlpha(isDark ? Integer.MIN_VALUE : colorize, (float)(isDark ? 205 : 80) * alphaPercent);
+            int c3 = ColorUtils.swapAlpha(isDark ? Integer.MIN_VALUE : colorize2, (float)(isDark ? 90 : 6) * alphaPercent);
+            GL11.glTranslated((double)(x - extenderOut), (double)y, (double)0.0);
+            RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(0.5f, 0.5f, x2 - x - 0.5f, y2 - y - 0.5f, isDark ? 2.0f : 4.0f, isDark ? 1.0f : 2.5f, c1, c3, c3, c1, false, true, true);
+            RenderUtils.resetBlender();
+            float extX = isDark ? 7.0f : 0.5f;
+            float extY = isDark ? 8.0f : 0.5f;
+            float size = isDark ? 3.0f : 16.0f;
+            Notify.drawIcon(type2, alphaPercent, extX, extY, size, mode);
+            font.drawStringWithShadow("\u00a7f" + text + surf2 + massage, isDark ? 13.0 : 19.0, isDark ? 5.5 : 5.0, ColorUtils.swapAlpha(colorize2, 255.0f * alphaPercent));
+            GL11.glTranslated((double)(-x + extenderOut), (double)(-y), (double)0.0);
+        }
+    }
 
-         float width = (isDark ? 18.5F : 24.0F) + (float)font.getStringWidth(text + surf + massage);
-         float w = width * notify.animX.getAnim();
-         float hStep = (float)(isDark ? 17 : 20) * notify.animY.getAnim();
-         float expX = 3.5F;
-         float expY = 4.5F;
-         float x = (float)sr.getScaledWidth() - w - 3.5F;
-         float y = (float)(sr.getScaledHeight() - 16) - 4.5F - hStep;
-         float x2 = (float)sr.getScaledWidth() - 3.5F + width - width * notify.animX.getAnim();
-         float y2 = (float)sr.getScaledHeight() - 4.5F - hStep;
-         float extenderOut = 0.0F;
-         if ((double)(time / max_time) > 0.8) {
-            extenderOut = (time / max_time - 0.8F) * (float)(isDark ? 10 : 80);
-         }
+    static class Notification {
+        private final AnimationUtils animY = new AnimationUtils(1.0f, 1.1f, 0.075f);
+        private final AnimationUtils animX = new AnimationUtils(0.0f, 1.0f, 0.075f);
+        private final String message;
+        private final long time;
+        private final long max_time;
+        type type;
 
-         float alphaPercent = notify.animX.getAnim();
-         int c1 = ColorUtils.swapAlpha(isDark ? Integer.MIN_VALUE : colorize, (float)(isDark ? 205 : 80) * alphaPercent);
-         int c3 = ColorUtils.swapAlpha(isDark ? Integer.MIN_VALUE : colorize2, (float)(isDark ? 90 : 6) * alphaPercent);
-         GL11.glTranslated((double)(x - extenderOut), (double)y, 0.0);
-         RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-            0.5F, 0.5F, x2 - x - 0.5F, y2 - y - 0.5F, isDark ? 2.0F : 4.0F, isDark ? 1.0F : 2.5F, c1, c3, c3, c1, false, true, true
-         );
-         RenderUtils.resetBlender();
-         float extX = isDark ? 7.0F : 0.5F;
-         float extY = isDark ? 8.0F : 0.5F;
-         float size = isDark ? 3.0F : 16.0F;
-         drawIcon(type, alphaPercent, extX, extY, size, mode);
-         font.drawStringWithShadow(
-            "§f" + text + surf2 + massage, isDark ? 13.0 : 19.0, isDark ? 5.5 : 5.0, ColorUtils.swapAlpha(colorize2, 255.0F * alphaPercent)
-         );
-         GL11.glTranslated((double)(-x + extenderOut), (double)(-y), 0.0);
-      }
-   }
+        public Notification(String message, long max_time, type type2) {
+            this.max_time = max_time;
+            this.message = message;
+            this.time = System.currentTimeMillis();
+            this.type = type2;
+        }
 
-   public static enum type {
-      ENABLE(ColorUtils.getColor(32, 143, 50), "Enable"),
-      DISABLE(ColorUtils.getColor(175, 35, 37), "Disable"),
-      STAFF(ColorUtils.getColor(92, 142, 255), "Staff"),
-      FADD(ColorUtils.getColor(190, 250, 140), "Friend add"),
-      FDEL(ColorUtils.getColor(250, 140, 140), "Friend remove");
+        public long getTime() {
+            return this.time;
+        }
 
-      private final int color;
-      private final String icon;
+        public int getColorize() {
+            return this.type.color;
+        }
 
-      private type(int color, String icon) {
-         this.color = color;
-         this.icon = icon;
-      }
-   }
+        public long getMax_Time() {
+            return this.max_time;
+        }
+
+        public String getMessage() {
+            return this.message;
+        }
+    }
+
+    public static enum type {
+        ENABLE(ColorUtils.getColor(32, 143, 50), "Enable"),
+        DISABLE(ColorUtils.getColor(175, 35, 37), "Disable"),
+        STAFF(ColorUtils.getColor(92, 142, 255), "Staff"),
+        FADD(ColorUtils.getColor(190, 250, 140), "Friend added"),
+        FDEL(ColorUtils.getColor(250, 140, 140), "Friend removed");
+
+        private final int color;
+        private final String icon;
+
+        private type(int color, String icon) {
+            this.color = color;
+            this.icon = icon;
+        }
+    }
 }
+

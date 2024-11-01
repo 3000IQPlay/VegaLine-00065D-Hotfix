@@ -26,6 +26,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.client.CPacketCloseWindow;
 import net.minecraft.network.play.client.CPacketHeldItemChange;
 import net.minecraft.network.play.client.CPacketPlayerDigging;
+import net.minecraft.network.play.client.CPacketPlayerDigging.Action;
 import net.minecraft.network.play.server.SPacketConfirmTransaction;
 import net.minecraft.network.play.server.SPacketHeldItemChange;
 import net.minecraft.util.DamageSource;
@@ -45,6 +46,7 @@ public class ProContainer extends Module {
    public BoolSettings ContainerInfo;
    public BoolSettings MouseTweaks;
    public BoolSettings QuickSwap;
+   public BoolSettings SwapsToClickConv;
    public BoolSettings ScrollItems;
    public BoolSettings CraftSlotsSafe;
    public BoolSettings CraftSlotsManager;
@@ -55,6 +57,8 @@ public class ProContainer extends Module {
    public BoolSettings AllowUiParagraph;
    public BoolSettings BetterSwapHands;
    public BoolSettings HandElytraSwap;
+   public BoolSettings NoExitDrop;
+   public BoolSettings ShowSlotNumbers;
    public static boolean allowParagraphToRepairUi;
    public static boolean autoArmorOFF;
    public final TimerHelper timer = new TimerHelper();
@@ -66,6 +70,7 @@ public class ProContainer extends Module {
       this.settings.add(this.ContainerInfo = new BoolSettings("ContainerInfo", true, this));
       this.settings.add(this.MouseTweaks = new BoolSettings("MouseTweaks", true, this));
       this.settings.add(this.QuickSwap = new BoolSettings("QuickSwap", true, this));
+      this.settings.add(this.SwapsToClickConv = new BoolSettings("SwapsToClicksConv", false, this));
       this.settings.add(this.ScrollItems = new BoolSettings("ScrollItems", true, this));
       this.settings.add(this.CraftSlotsSafe = new BoolSettings("CraftSlotsSafe", false, this));
       this.settings.add(this.CraftSlotsManager = new BoolSettings("CraftSlotsManager", false, this, () -> this.CraftSlotsSafe.getBool()));
@@ -76,17 +81,28 @@ public class ProContainer extends Module {
       this.settings.add(this.AllowUiParagraph = new BoolSettings("AllowUiParagraph", true, this));
       this.settings.add(this.BetterSwapHands = new BoolSettings("BetterSwapHands", true, this));
       this.settings.add(this.HandElytraSwap = new BoolSettings("HandElytraSwap", true, this));
+      this.settings.add(this.NoExitDrop = new BoolSettings("NoExitDrop", false, this));
+      this.settings.add(this.ShowSlotNumbers = new BoolSettings("ShowSlotNumbers", false, this));
       get = this;
    }
 
    public void onKey(int key) {
       if (this.BetterSwapHands.getBool() && key == mc.gameSettings.keyBindSwapHands.getKeyCode()) {
-         Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.SWAP_HELD_ITEMS, BlockPos.ORIGIN, EnumFacing.DOWN));
-         ItemStack main = Minecraft.player.getHeldItemMainhand();
-         ItemStack off = Minecraft.player.getHeldItemOffhand();
-         Minecraft.player.setHeldItem(EnumHand.MAIN_HAND, off);
-         Minecraft.player.setHeldItem(EnumHand.OFF_HAND, main);
-         OffHand.oldSlot = null;
+         if (this.SwapsToClickConv.getBool()) {
+            mc.playerController.windowClick(0, 45, Minecraft.player.inventory.currentItem, ClickType.SWAP, Minecraft.player);
+            ItemStack main = Minecraft.player.getHeldItemMainhand();
+            ItemStack off = Minecraft.player.getHeldItemOffhand();
+            Minecraft.player.setHeldItem(EnumHand.MAIN_HAND, main);
+            Minecraft.player.setHeldItem(EnumHand.OFF_HAND, off);
+            OffHand.oldSlot = null;
+         } else {
+            Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(Action.SWAP_HELD_ITEMS, BlockPos.ORIGIN, EnumFacing.DOWN));
+            ItemStack main = Minecraft.player.getHeldItemMainhand();
+            ItemStack off = Minecraft.player.getHeldItemOffhand();
+            Minecraft.player.setHeldItem(EnumHand.MAIN_HAND, off);
+            Minecraft.player.setHeldItem(EnumHand.OFF_HAND, main);
+            OffHand.oldSlot = null;
+         }
       }
    }
 
@@ -180,7 +196,7 @@ public class ProContainer extends Module {
             && (mc.rightClickDelayTimer == 4 || mc.rightClickDelayTimer == 0)
             && mc.currentScreen == null
             && Minecraft.player.openContainer instanceof ContainerPlayer
-            && this.currentBooleanValue("HandElytraSwap")) {
+            && this.HandElytraSwap.getBool()) {
             ItemStack stackInHand = Minecraft.player.inventory.getCurrentItem();
             ItemStack stackOnChestplate = Minecraft.player.inventory.armorItemInSlot(2);
             Item itemInHand = stackInHand.getItem();
@@ -214,6 +230,7 @@ public class ProContainer extends Module {
 
          if ((mc.currentScreen == null || mc.currentScreen instanceof GuiInventory)
             && !autoArmorOFF
+            && (!Bypass.get.isActived() || !Bypass.get.NCPMovement.getBool() || !ElytraBoost.canElytra())
             && this.AutoArmor.getBool()
             && (!ElytraBoost.get.actived || !ElytraBoost.canElytra())) {
             if (!this.timer.hasReached(200.0)) {
@@ -243,7 +260,7 @@ public class ProContainer extends Module {
                      int armorValue = this.getArmorValue(item, stack);
                      if (armorValue > var17[armorType]) {
                         var14[armorType] = slot;
-                        if (this.autoArmorIgnoreForElytra && var12.armorInventory.get(armorType).getItem() instanceof ItemElytra) {
+                        if (this.autoArmorIgnoreForElytra && ((ItemStack)var12.armorInventory.get(armorType)).getItem() instanceof ItemElytra) {
                            var14[armorType] = -1;
                         }
 

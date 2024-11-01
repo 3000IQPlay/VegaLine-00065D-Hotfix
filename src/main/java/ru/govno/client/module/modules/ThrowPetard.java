@@ -10,6 +10,8 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.GlStateManager.DestFactor;
+import net.minecraft.client.renderer.GlStateManager.SourceFactor;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.Entity;
@@ -81,12 +83,7 @@ public class ThrowPetard extends Module {
          this.nanoSparks.removeIf(ThrowPetard.NanoSpark::isToRemove);
          if (!this.nanoSparks.isEmpty()) {
             this.glSetDrawing(true);
-            GlStateManager.tryBlendFuncSeparate(
-               GlStateManager.SourceFactor.SRC_ALPHA,
-               GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA,
-               GlStateManager.SourceFactor.ONE,
-               GlStateManager.DestFactor.ZERO
-            );
+            GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_CONSTANT_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
             GL11.glPointSize(2.25F);
             GL11.glBegin(0);
             this.nanoSparks.forEach(ThrowPetard.NanoSpark::drawAndUpdate);
@@ -124,12 +121,7 @@ public class ThrowPetard extends Module {
          GL11.glEnable(2884);
          GL11.glDepthMask(true);
          GlStateManager.enableBlend();
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          GlStateManager.resetColor();
          GL11.glPopMatrix();
       }
@@ -361,7 +353,7 @@ public class ThrowPetard extends Module {
                   .world
                   .getLoadedEntityList()
                   .stream()
-                  .map(Entity::getLivingBaseOf)
+                  .<EntityLivingBase>map(Entity::getLivingBaseOf)
                   .filter(Objects::nonNull)
                   .filter(basex -> basex.getDistance(this.x, this.y, this.z) < 7.0)
                   .collect(Collectors.toList())) {

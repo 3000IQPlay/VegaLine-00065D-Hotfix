@@ -7,101 +7,92 @@ import ru.govno.client.utils.Math.MathUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
-public class PhantomDash extends Module {
-   private int pushTicks;
-   private int prevPushTicks;
-   private int dashTicks;
-   private int slowingTicks;
-   public static double tempSpeed = 1.0;
+public class PhantomDash
+extends Module {
+    private int pushTicks;
+    private int prevPushTicks;
+    private int dashTicks;
+    private int slowingTicks;
+    public static double tempSpeed = 1.0;
 
-   private int getMaxDashTicks() {
-      return 20;
-   }
+    private int getMaxDashTicks() {
+        return 20;
+    }
 
-   private int getPushLimitTicks() {
-      return 3;
-   }
+    private int getPushLimitTicks() {
+        return 3;
+    }
 
-   public PhantomDash() {
-      super("PhantomDash", 0, Module.Category.MOVEMENT);
-   }
+    public PhantomDash() {
+        super("PhantomDash", 0, Module.Category.MOVEMENT);
+    }
 
-   @Override
-   public void onUpdate() {
-      this.prevPushTicks = this.pushTicks;
-      if (Minecraft.player.isSneaking()) {
-         if (++this.pushTicks == 1) {
-            this.slowingTrigger();
-         }
-      } else {
-         if (this.pushTicks != 0 && this.pushTicks < this.getMaxDashTicks()) {
-            this.dashingTrigger();
-         }
+    @Override
+    public void onUpdate() {
+        this.prevPushTicks = this.pushTicks++;
+        if (Minecraft.player.isSneaking()) {
+            if (this.pushTicks == 1) {
+                this.slowingTrigger();
+            }
+        } else {
+            if (this.pushTicks != 0 && this.pushTicks < this.getMaxDashTicks()) {
+                this.dashingTrigger();
+            }
+            this.pushTicks = 0;
+        }
+        this.updateDashFactor();
+    }
 
-         this.pushTicks = 0;
-      }
+    private double speedFactor() {
+        return 4.5;
+    }
 
-      this.updateDashFactor();
-   }
+    private void slowingTrigger() {
+        this.slowingTicks = this.getPushLimitTicks();
+    }
 
-   private double speedFactor() {
-      return 4.5;
-   }
+    private void dashingTrigger() {
+        if (this.pushTicks < this.getMaxDashTicks()) {
+            this.dashTicks = (int)((float)this.getMaxDashTicks() * (1.0f - (float)this.slowingTicks / (float)this.getPushLimitTicks()));
+        }
+    }
 
-   private void slowingTrigger() {
-      this.slowingTicks = this.getPushLimitTicks();
-   }
-
-   private void dashingTrigger() {
-      if (this.pushTicks < this.getMaxDashTicks()) {
-         this.dashTicks = (int)((float)this.getMaxDashTicks() * (1.0F - (float)this.slowingTicks / (float)this.getPushLimitTicks()));
-      }
-   }
-
-   private void updateDashFactor() {
-      if (this.slowingTicks > 0) {
-         this.slowingTicks--;
-      }
-
-      if (this.pushTicks >= this.getMaxDashTicks()) {
-         this.dashTicks = 0;
-      }
-
-      if (this.dashTicks > 0) {
-         this.dashTicks--;
-      }
-
-      boolean slowing = this.slowingTicks > 0 && this.pushTicks > this.prevPushTicks;
-      boolean dash = this.dashTicks > 0;
-      tempSpeed = 1.0;
-      if (slowing) {
-         tempSpeed = 1.0 / this.speedFactor();
-      } else {
-         if (dash) {
+    private void updateDashFactor() {
+        if (this.slowingTicks > 0) {
+            --this.slowingTicks;
+        }
+        if (this.pushTicks >= this.getMaxDashTicks()) {
+            this.dashTicks = 0;
+        }
+        if (this.dashTicks > 0) {
+            --this.dashTicks;
+        }
+        boolean slowing = this.slowingTicks > 0 && this.pushTicks > this.prevPushTicks;
+        boolean dash = this.dashTicks > 0;
+        tempSpeed = 1.0;
+        if (slowing) {
+            tempSpeed = 1.0 / this.speedFactor();
+            return;
+        }
+        if (dash) {
             tempSpeed = this.speedFactor();
-         }
-      }
-   }
+        }
+    }
 
-   @Override
-   public void onRender2D(ScaledResolution sr) {
-      float w = 70.0F;
-      float h = 10.0F;
-      float x = (float)sr.getScaledWidth() / 2.0F - w / 2.0F;
-      float y = (float)sr.getScaledHeight() / 4.0F - h / 2.0F;
-      int color = -1;
-      float pTicks = mc.getRenderPartialTicks();
-      float smoothPush = MathUtils.lerp((float)this.prevPushTicks, (float)this.pushTicks, pTicks);
-      float smoothDashTime = this.dashTicks == 0 ? 0.0F : (float)this.dashTicks + 1.0F - pTicks;
-      RenderUtils.drawAlphedRect(
-         (double)x,
-         (double)y,
-         (double)(x + w * MathUtils.clamp(smoothPush / ((float)this.getPushLimitTicks() + 1.0F), 0.0F, 1.0F)),
-         (double)(y + h / 2.0F),
-         color
-      );
-      RenderUtils.drawAlphedRect((double)x, (double)(y + h / 2.0F), (double)(x + w * (smoothDashTime / (float)this.getMaxDashTicks())), (double)(y + h), color);
-      int bgColor = ColorUtils.getColor(0, 0, 0);
-      RenderUtils.drawLightContureRect((double)x, (double)y, (double)(x + w), (double)(y + h), bgColor);
-   }
+    @Override
+    public void onRender2D(ScaledResolution sr) {
+        float w = 70.0f;
+        float h = 10.0f;
+        float x = (float)sr.getScaledWidth() / 2.0f - w / 2.0f;
+        float y = (float)sr.getScaledHeight() / 4.0f - h / 2.0f;
+        int color = -1;
+        float pTicks = mc.getRenderPartialTicks();
+        float smoothPush = MathUtils.lerp(this.prevPushTicks, this.pushTicks, pTicks);
+        float smoothDashTime = this.dashTicks == 0 ? 0.0f : (float)this.dashTicks + 1.0f - pTicks;
+        RenderUtils.drawAlphedRect(x, y, x + w * MathUtils.clamp(smoothPush / ((float)this.getPushLimitTicks() + 1.0f), 0.0f, 1.0f), y + h / 2.0f, color);
+        RenderUtils.drawAlphedRect(x, y + h / 2.0f, x + w * (smoothDashTime / (float)this.getMaxDashTicks()), y + h, color);
+        int bgColor = ColorUtils.getColor(0, 0, 0);
+        RenderUtils.drawLightContureRect(x, y, x + w, y + h, bgColor);
+    }
 }
+

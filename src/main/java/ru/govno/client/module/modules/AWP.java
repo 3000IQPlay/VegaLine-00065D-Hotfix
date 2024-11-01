@@ -3,6 +3,7 @@ package ru.govno.client.module.modules;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.CPacketEntityAction;
 import net.minecraft.network.play.client.CPacketPlayer;
 import net.minecraft.network.play.client.CPacketPlayerDigging;
@@ -10,6 +11,8 @@ import ru.govno.client.Client;
 import ru.govno.client.event.EventTarget;
 import ru.govno.client.event.events.EventSendPacket;
 import ru.govno.client.module.Module;
+import ru.govno.client.module.modules.BowAimbot;
+import ru.govno.client.module.modules.ElytraBoost;
 import ru.govno.client.module.settings.BoolSettings;
 import ru.govno.client.module.settings.FloatSettings;
 import ru.govno.client.utils.Command.impl.Clip;
@@ -19,152 +22,131 @@ import ru.govno.client.utils.Render.AnimationUtils;
 import ru.govno.client.utils.Render.ColorUtils;
 import ru.govno.client.utils.Render.RenderUtils;
 
-public class AWP extends Module {
-   public static AWP get;
-   private final AnimationUtils usingProgress = new AnimationUtils(0.0F, 0.0F, 0.1F);
-   private float indicatorScale = 0.0F;
-   private float radiusPlus = 0.0F;
-   BoolSettings MatrixElytra;
-   BoolSettings Massage;
-   FloatSettings Packets;
-   private final TimerHelper wait = new TimerHelper();
+public class AWP
+extends Module {
+    public static AWP get;
+    private final AnimationUtils usingProgress = new AnimationUtils(0.0f, 0.0f, 0.1f);
+    private float indicatorScale = 0.0f;
+    private float radiusPlus = 0.0f;
+    BoolSettings MatrixElytra;
+    BoolSettings Massage;
+    FloatSettings Packets;
+    private final TimerHelper wait = new TimerHelper();
 
-   public AWP() {
-      super("AWP", 0, Module.Category.COMBAT);
-      this.settings.add(this.MatrixElytra = new BoolSettings("MatrixElytra", false, this));
-      this.settings.add(this.Packets = new FloatSettings("Packets", 45.0F, 100.0F, 10.0F, this, () -> !this.MatrixElytra.getBool()));
-      this.settings.add(this.Massage = new BoolSettings("Massage", true, this));
-   }
+    public AWP() {
+        super("AWP", 0, Module.Category.COMBAT);
+        this.MatrixElytra = new BoolSettings("MatrixElytra", false, this);
+        this.settings.add(this.MatrixElytra);
+        this.Packets = new FloatSettings("Packets", 45.0f, 100.0f, 10.0f, this, () -> !this.MatrixElytra.getBool());
+        this.settings.add(this.Packets);
+        this.Massage = new BoolSettings("Massage", true, this);
+        this.settings.add(this.Massage);
+    }
 
-   private float getCurrentLongUseDamage(float packetsCount) {
-      return 2.24F + packetsCount * 0.092159994F;
-   }
+    private float getCurrentLongUseDamage(float packetsCount) {
+        return 2.24f + packetsCount * 0.092159994f;
+    }
 
-   @EventTarget
-   public void onSend(EventSendPacket event) {
-      if (event.getPacket() instanceof CPacketPlayerDigging packet) {
-         if (packet != null && packet.getAction() == CPacketPlayerDigging.Action.RELEASE_USE_ITEM && this.correctUseMod() && this.wait.hasReached(100.0)) {
+    @EventTarget
+    public void onSend(EventSendPacket event) {
+        Packet packet = event.getPacket();
+        if (!(packet instanceof CPacketPlayerDigging)) {
+            return;
+        }
+        CPacketPlayerDigging packet2 = (CPacketPlayerDigging)packet;
+        if (packet2 != null && packet2.getAction() == CPacketPlayerDigging.Action.RELEASE_USE_ITEM && this.correctUseMod() && this.wait.hasReached(100.0)) {
             this.damageMultiply(this.hasTautString(this.getTautPercent()), this.Packets.getInt(), this.Massage.getBool());
             this.wait.reset();
-         }
-      }
-   }
+        }
+    }
 
-   private boolean correctUseMod() {
-      return Minecraft.player.isBowing() && this.actived;
-   }
+    private boolean correctUseMod() {
+        return Minecraft.player.isBowing() && this.actived;
+    }
 
-   private void drawIndicator(float scaling, ScaledResolution sr) {
-      this.usingProgress.to = this.getTautPercent();
-      float progress = MathUtils.clamp(this.usingProgress.getAnim(), 0.05F, 1.0F);
-      float plusRad = this.radiusPlus;
-      float width = 100.0F - 50.0F * plusRad;
-      float height = 4.0F;
-      float extendY = 30.0F;
-      float x = (float)(sr.getScaledWidth() / 2) - width / 2.0F;
-      float x2 = (float)(sr.getScaledWidth() / 2) + width / 2.0F;
-      float x3 = (float)(sr.getScaledWidth() / 2) - width / 2.0F + width * progress;
-      float y = (float)(sr.getScaledHeight() / 2) + 30.0F;
-      float y2 = y + 4.0F;
-      float alphed = scaling * scaling;
-      int colorShadow = ColorUtils.getColor(5, (int)(plusRad * 255.0F), 14, (int)((90.0F + plusRad * 45.0F) * alphed));
-      int colorLeft = ColorUtils.getOverallColorFrom(
-         ColorUtils.getColor(255, 110, 70, (int)(140.0F * alphed)), ColorUtils.swapAlpha(colorShadow, alphed * 80.0F), plusRad
-      );
-      int colorRight = ColorUtils.getOverallColorFrom(
-         ColorUtils.getColor(140, 255, 255, (int)(120.0F * alphed)), ColorUtils.swapAlpha(colorShadow, alphed * 95.0F), plusRad
-      );
-      GlStateManager.pushMatrix();
-      RenderUtils.customScaledObject2D(x, y, width, 4.0F, scaling);
-      RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-         x, y, x3, y2, 2.0F, 0.0F, colorLeft, colorRight, colorRight, colorLeft, false, true, false
-      );
-      RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
-         x, y, x2, y2, 2.0F, 2.0F + plusRad * 3.25F, colorShadow, colorShadow, colorShadow, colorShadow, false, false, true
-      );
-      GlStateManager.popMatrix();
-   }
+    private void drawIndicator(float scaling, ScaledResolution sr) {
+        this.usingProgress.to = this.getTautPercent();
+        float progress = MathUtils.clamp(this.usingProgress.getAnim(), 0.05f, 1.0f);
+        float plusRad = this.radiusPlus;
+        float width = 100.0f - 50.0f * plusRad;
+        float height = 4.0f;
+        float extendY = 30.0f;
+        float x = (float)(sr.getScaledWidth() / 2) - width / 2.0f;
+        float x2 = (float)(sr.getScaledWidth() / 2) + width / 2.0f;
+        float x3 = (float)(sr.getScaledWidth() / 2) - width / 2.0f + width * progress;
+        float y = (float)(sr.getScaledHeight() / 2) + 30.0f;
+        float y2 = y + 4.0f;
+        float alphed = scaling * scaling;
+        int colorShadow = ColorUtils.getColor(5, (int)(plusRad * 255.0f), 14, (int)((90.0f + plusRad * 45.0f) * alphed));
+        int colorLeft = ColorUtils.getOverallColorFrom(ColorUtils.getColor(255, 110, 70, (int)(140.0f * alphed)), ColorUtils.swapAlpha(colorShadow, alphed * 80.0f), plusRad);
+        int colorRight = ColorUtils.getOverallColorFrom(ColorUtils.getColor(140, 255, 255, (int)(120.0f * alphed)), ColorUtils.swapAlpha(colorShadow, alphed * 95.0f), plusRad);
+        GlStateManager.pushMatrix();
+        RenderUtils.customScaledObject2D(x, y, width, 4.0f, scaling);
+        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x3, y2, 2.0f, 0.0f, colorLeft, colorRight, colorRight, colorLeft, false, true, false);
+        RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(x, y, x2, y2, 2.0f, 2.0f + plusRad * 3.25f, colorShadow, colorShadow, colorShadow, colorShadow, false, false, true);
+        GlStateManager.popMatrix();
+    }
 
-   @Override
-   public void alwaysRender2D(ScaledResolution sr) {
-      if (this.correctUseMod() && this.indicatorScale != 1.0F || !this.correctUseMod() && this.indicatorScale != 0.0F) {
-         this.indicatorScale = MathUtils.harp(this.indicatorScale, this.correctUseMod() ? 1.0F : 0.0F, (float)Minecraft.frameTime * 0.005F);
-      }
+    @Override
+    public void alwaysRender2D(ScaledResolution sr) {
+        if (this.correctUseMod() && this.indicatorScale != 1.0f || !this.correctUseMod() && this.indicatorScale != 0.0f) {
+            this.indicatorScale = MathUtils.harp(this.indicatorScale, this.correctUseMod() ? 1.0f : 0.0f, (float)Minecraft.frameTime * 0.005f);
+        }
+        if (this.indicatorScale == 0.0f) {
+            return;
+        }
+        this.radiusPlus = MathUtils.harp(this.radiusPlus, this.hasTautString(this.getTautPercent()) && (double)this.usingProgress.getAnim() > 0.995 ? 1.0f : 0.0f, (float)Minecraft.frameTime * 0.01f);
+        this.drawIndicator(this.indicatorScale, sr);
+    }
 
-      if (this.indicatorScale != 0.0F) {
-         this.radiusPlus = MathUtils.harp(
-            this.radiusPlus,
-            this.hasTautString(this.getTautPercent()) && (double)this.usingProgress.getAnim() > 0.995 ? 1.0F : 0.0F,
-            (float)Minecraft.frameTime * 0.01F
-         );
-         this.drawIndicator(this.indicatorScale, sr);
-      }
-   }
+    private float getTautPercent() {
+        return (float)Minecraft.player.getItemInUseMaxCount() / this.getCurrentLongUseDamage(this.MatrixElytra.getBool() ? 26.0f : this.Packets.getFloat()) >= 1.0f ? 1.0f : (float)Minecraft.player.getItemInUseMaxCount() / this.getCurrentLongUseDamage(this.MatrixElytra.getBool() ? 26.0f : this.Packets.getFloat());
+    }
 
-   private float getTautPercent() {
-      return (float)Minecraft.player.getItemInUseMaxCount() / this.getCurrentLongUseDamage(this.MatrixElytra.getBool() ? 26.0F : this.Packets.getFloat())
-            >= 1.0F
-         ? 1.0F
-         : (float)Minecraft.player.getItemInUseMaxCount() / this.getCurrentLongUseDamage(this.MatrixElytra.getBool() ? 26.0F : this.Packets.getFloat());
-   }
+    private boolean hasTautString(float used) {
+        return used == 1.0f;
+    }
 
-   private boolean hasTautString(float used) {
-      return used == 1.0F;
-   }
-
-   private void damageMultiply(boolean successfully, int packetsCount, boolean sendFakeMassage) {
-      if (!successfully) {
-         if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Can't increase bow damage.", false);
-         }
-      } else {
-         float yaw = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[0] : Minecraft.player.rotationYaw;
-         float pitch = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[1] : Minecraft.player.rotationPitch;
-         Clip.goClip(0.0, 0.0, false);
-         if (this.MatrixElytra.getBool()) {
+    private void damageMultiply(boolean successfully, int packetsCount, boolean sendFakeMassage) {
+        if (!successfully) {
+            if (sendFakeMassage) {
+                Client.msg("\u00a7f\u00a7lModules:\u00a7r \u00a77[\u00a7l" + this.name + "\u00a7r\u00a77]: \u041d\u0435 \u043c\u043e\u0433\u0443 \u0443\u0432\u0435\u043b\u0438\u0447\u0438\u0442\u044c \u0443\u0440\u043e\u043d \u043b\u0443\u043a\u0430.", false);
+            }
+            return;
+        }
+        float yaw = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[0] : Minecraft.player.rotationYaw;
+        float pitch = BowAimbot.get.getTarget() != null ? BowAimbot.getVirt()[1] : Minecraft.player.rotationPitch;
+        Clip.goClip(0.0, 0.0, false);
+        if (this.MatrixElytra.getBool()) {
             if (ElytraBoost.canElytra()) {
-               ElytraBoost.equipElytra();
-               ElytraBoost.badPacket();
-               Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
-               Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.STOP_SPRINTING));
-               Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
-               ElytraBoost.badPacket();
-               ElytraBoost.dequipElytra();
-               Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
-
-               for (int packet = 0; packet < 26; packet++) {
-                  Minecraft.player
-                     .connection
-                     .sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY + 0.2, Minecraft.player.posZ, false));
-                  Minecraft.player
-                     .connection
-                     .sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY, Minecraft.player.posZ, false));
-               }
-
-               Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(yaw, 4.2F, false));
+                ElytraBoost.equipElytra();
+                ElytraBoost.badPacket();
+                Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
+                Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.STOP_SPRINTING));
+                Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
+                ElytraBoost.badPacket();
+                ElytraBoost.dequipElytra();
+                Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
+                for (int packet = 0; packet < 26; ++packet) {
+                    Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY + 0.2, Minecraft.player.posZ, false));
+                    Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY, Minecraft.player.posZ, false));
+                }
+                Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(yaw, 4.2f, false));
             } else {
-               Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: You don't have elytra in your inventory.", false);
+                Client.msg("\u00a7f\u00a7lModules:\u00a7r \u00a77[\u00a7l" + this.name + "\u00a7r\u00a77]: \u0423 \u0432\u0430\u0441 \u043d\u0435\u0442 \u044d\u043b\u0438\u0442\u0440\u044b \u0432 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u0435.", false);
             }
-         } else {
+        } else {
             Minecraft.player.connection.preSendPacket(new CPacketEntityAction(Minecraft.player, CPacketEntityAction.Action.START_SPRINTING));
-
-            for (int packet = 0; packet < packetsCount / 2; packet++) {
-               Minecraft.player
-                  .connection
-                  .sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY + 0.002F, Minecraft.player.posZ, false));
-               Minecraft.player
-                  .connection
-                  .sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY - 0.002F, Minecraft.player.posZ, true));
+            for (int packet = 0; packet < packetsCount / 2; ++packet) {
+                Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY + (double)0.002f, Minecraft.player.posZ, false));
+                Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(Minecraft.player.posX, Minecraft.player.posY - (double)0.002f, Minecraft.player.posZ, true));
             }
-
             Minecraft.player.connection.sendPacket(new CPacketPlayer.Rotation(yaw, (float)MathUtils.clamp((double)pitch * 1.0001, -89.9, 89.9), false));
-         }
-
-         if (sendFakeMassage) {
-            Client.msg("§f§lModules:§r §7[§l" + this.name + "§r§7]: Increase bow damage.", false);
-         }
-
-         this.usingProgress.setAnim(0.0F);
-      }
-   }
+        }
+        if (sendFakeMassage) {
+            Client.msg("\u00a7f\u00a7lModules:\u00a7r \u00a77[\u00a7l" + this.name + "\u00a7r\u00a77]: \u0423\u0432\u0435\u043b\u0438\u0447\u0432\u0430\u044e \u0443\u0440\u043e\u043d \u043b\u0443\u043a\u0430.", false);
+        }
+        this.usingProgress.setAnim(0.0f);
+    }
 }
+

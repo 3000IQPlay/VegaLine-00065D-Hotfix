@@ -1,11 +1,22 @@
 package ru.govno.client.module.modules;
 
+import java.util.List;
+import java.util.Objects;
 import net.minecraft.block.BlockLiquid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.MobEffects;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBow;
+import net.minecraft.item.ItemEnderPearl;
+import net.minecraft.item.ItemFishingRod;
+import net.minecraft.item.ItemLingeringPotion;
+import net.minecraft.item.ItemSplashPotion;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.server.SPacketPlayerPosLook;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.MovementInput;
@@ -14,6 +25,7 @@ import net.minecraft.util.math.BlockPos;
 import ru.govno.client.event.EventTarget;
 import ru.govno.client.event.events.EventAction;
 import ru.govno.client.event.events.EventMove2;
+import ru.govno.client.event.events.EventMoveKeys;
 import ru.govno.client.event.events.EventPlayerMotionUpdate;
 import ru.govno.client.event.events.EventPostMove;
 import ru.govno.client.event.events.EventReceivePacket;
@@ -24,6 +36,7 @@ import ru.govno.client.module.Module;
 import ru.govno.client.module.settings.BoolSettings;
 import ru.govno.client.module.settings.ModeSettings;
 import ru.govno.client.utils.Wrapper;
+import ru.govno.client.utils.Combat.RotationUtil;
 import ru.govno.client.utils.Math.MathUtils;
 import ru.govno.client.utils.Math.TimerHelper;
 import ru.govno.client.utils.Movement.MatrixStrafeMovement;
@@ -36,6 +49,7 @@ public class Strafe extends Module {
    public BoolSettings PullDown;
    public BoolSettings DoNcpMin;
    public BoolSettings HeadYawMoveDir;
+   public BoolSettings CollideBoost;
    private final TimerHelper noCollideTime = new TimerHelper();
    float moveYaw = -1.2312312E8F;
    float moveYawPrev;
@@ -73,25 +87,90 @@ public class Strafe extends Module {
          );
       this.settings.add(this.DoNcpMin = new BoolSettings("DoNcpMin", true, this, () -> this.Mode.currentMode.equalsIgnoreCase("Strict")));
       this.settings.add(this.HeadYawMoveDir = new BoolSettings("HeadYawMoveDir", true, this, () -> !this.Mode.currentMode.equalsIgnoreCase("Grim")));
+      this.settings
+         .add(
+            this.CollideBoost = new BoolSettings(
+               "CollideBoost", false, this, () -> this.Mode.currentMode.equalsIgnoreCase("Grim") || this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC")
+            )
+         );
       get = this;
+   }
+
+   private boolean canRotate() {
+      if (ThrowFollow.get.runTicks == 1 || Minecraft.player.isRiding()) {
+         return false;
+      } else if (MiddleClick.get.callThrowPearl
+         || MiddleClick.get.callThrowPearl2
+         || HitAura.get.canRotateUpdated
+         || PotionThrower.get.callThrowPotions
+         || PotionThrower.get.forceThrow) {
+         return false;
+      } else if (HitAura.get.canRotateUpdated) {
+         return false;
+      } else {
+         ItemStack stackInHand = Minecraft.player.getHeldItemMainhand();
+         if (stackInHand != null) {
+            Item item = stackInHand.getItem();
+            if (item instanceof ItemEnderPearl
+               || item instanceof ItemBow
+               || item instanceof ItemSplashPotion
+               || item instanceof ItemLingeringPotion
+               || item instanceof ItemFishingRod) {
+               return false;
+            }
+         }
+
+         return this.Mode.currentMode.equalsIgnoreCase("Grim") || this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC");
+      }
    }
 
    @EventTarget
    public void onSilentSideStrafe(EventRotationStrafe event) {
+      if (this.actived && this.canRotate()) {
+         event.setYaw(MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
+      }
+   }
+
+   @EventTarget
+   public void onMoveKeysPress(EventMoveKeys event) {
+      if (this.actived
+         && this.canRotate()
+         && (
+            (event.isForwardKeyDown() || event.isBackKeyDown()) && event.isForwardKeyDown() != event.isBackKeyDown()
+               || (event.isRightKeyDown() || event.isLeftKeyDown()) && event.isRightKeyDown() != event.isLeftKeyDown()
+         )) {
+         event.setForwardKeyDown(true);
+         event.setBackKeyDown(false);
+         event.setLeftKeyDown(false);
+         event.setRightKeyDown(false);
+      }
    }
 
    @EventTarget
    public void onSilentSideJump(EventRotationJump event) {
-      if (this.actived && this.moveYaw != -1.2312312E8F && this.moveYaw != Minecraft.player.rotationYaw && MoveMeHelp.getSpeed() > 0.1) {
-         event.setYaw(this.moveYaw);
+      if (this.actived && this.canRotate()) {
+         event.setYaw(MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
       }
    }
 
    @EventTarget
    public void onPlayerUpdate(EventPlayerMotionUpdate event) {
       if (this.actived) {
-         if (!this.Mode.currentMode.equalsIgnoreCase("Grim") && !this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC")) {
-            if (this.HeadYawMoveDir.getBool() && MoveMeHelp.moveKeysPressed()) {
+         if (this.canRotate()) {
+            if (MoveMeHelp.isMoving() && (!MoveMeHelp.w() || MoveMeHelp.a() || MoveMeHelp.s() || MoveMeHelp.d())) {
+               this.moveYawPrev = this.moveYaw;
+               event.setYaw(MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
+               if (this.Mode.currentMode.equalsIgnoreCase("Grim") || this.HeadYawMoveDir.getBool()) {
+                  Minecraft.player.rotationYawHead = event.getYaw();
+                  Minecraft.player.renderYawOffset = RotationUtil.getAngleDifference(event.getYaw(), Minecraft.player.rotationYaw) > 90.0F
+                     ? event.getYaw()
+                     : RotationUtil.calcYawOffset(event.getYaw());
+               }
+            } else if (this.moveYaw != -1.2312312E8F) {
+               this.moveYaw = -1.2312312E8F;
+            }
+         } else {
+            if (this.HeadYawMoveDir.getBool() && MoveMeHelp.isMoving() && this.canRotate()) {
                Minecraft.player.rotationYawHead = MoveMeHelp.moveYaw(Minecraft.player.rotationYaw);
                Minecraft.player.renderYawOffset = Minecraft.player.rotationYawHead;
             }
@@ -99,24 +178,13 @@ public class Strafe extends Module {
             if (this.moveYaw != -1.2312312E8F) {
                this.moveYaw = -1.2312312E8F;
             }
-         } else if (MoveMeHelp.moveKeysPressed() && (!MoveMeHelp.w() || MoveMeHelp.a() || MoveMeHelp.s() || MoveMeHelp.d())) {
-            this.moveYawPrev = this.moveYaw;
-            event.setYaw(this.moveYaw = MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
-            if (this.Mode.currentMode.equalsIgnoreCase("Grim") || this.HeadYawMoveDir.getBool()) {
-               Minecraft.player.rotationYawHead = event.getYaw();
-            }
-         } else if (this.moveYaw != -1.2312312E8F) {
-            this.moveYaw = -1.2312312E8F;
          }
       }
    }
 
    @EventTarget
    public void onSprintBlock(EventSprintBlock event) {
-      if (this.actived
-         && (this.Mode.currentMode.equalsIgnoreCase("Grim") || this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC"))
-         && this.moveYaw != Minecraft.player.rotationYaw
-         && MoveMeHelp.getSpeed() > 0.1) {
+      if (this.actived && this.canRotate() && this.moveYaw != Minecraft.player.rotationYaw && MoveMeHelp.getSpeed() > 0.04) {
          event.setCancelled(true);
       }
    }
@@ -130,6 +198,7 @@ public class Strafe extends Module {
             MatrixStrafeMovement.oldSpeed = 0.0;
             speed = 0.0F;
             this.doUps = true;
+            Speed.ncpSpeed = 0.0F;
          }
       }
    }
@@ -267,6 +336,32 @@ public class Strafe extends Module {
                   speed = 0.0F;
                }
             }
+
+            if (this.Mode.currentMode.equalsIgnoreCase("Grim")
+               && this.CollideBoost.getBool()
+               && this.CollideBoost.getBool()
+               && MoveMeHelp.isMoving()
+               && MoveMeHelp.getSpeed() > 0.0) {
+               List<EntityLivingBase> bases = mc.world
+                  .getLoadedEntityList()
+                  .stream()
+                  .<EntityLivingBase>map(Entity::getLivingBaseOf)
+                  .filter(Objects::nonNull)
+                  .filter(
+                     base -> base != Minecraft.player
+                           && !(base instanceof EntityArmorStand)
+                           && base.canBeCollidedWith()
+                           && Minecraft.player.boundingBox.addExpandXZ(0.5 - MoveMeHelp.getSpeed()).intersectsWith(base.boundingBox)
+                  )
+                  .toList();
+               if (!bases.isEmpty()) {
+                  int boostCrate = 1;
+                  double boostAddition = 0.08 * (double)boostCrate;
+                  double moveYaw = Math.toRadians((double)MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
+                  Minecraft.player.addVelocity(-Math.sin(moveYaw) * boostAddition, 0.0, Math.cos(moveYaw) * boostAddition);
+                  speed = (float)MoveMeHelp.getSpeed();
+               }
+            }
          }
       }
    }
@@ -280,7 +375,7 @@ public class Strafe extends Module {
             double forward = (double)MovementInput.moveForward;
             double strafe = (double)MovementInput.moveStrafe;
             float yaw = Minecraft.player.rotationYaw - (Minecraft.player.lastReportedPreYaw - Minecraft.player.rotationYaw) * 2.5F;
-            if (HitAura.get.RotateMoveSide.getBool() && HitAura.TARGET != null) {
+            if (HitAura.get.RotateMoveSide.getBool() && HitAura.TARGET != null && HitAura.get.canRotateUpdated) {
                yaw = HitAura.get.rotations[0];
             }
 
@@ -356,8 +451,7 @@ public class Strafe extends Module {
                double cur = 0.0;
                if (mc.timer.speed != 1.0600014F
                   && this.TimerBoost.getBool()
-                  && !this.Mode.currentMode.equalsIgnoreCase("Strict")
-                  && MoveMeHelp.getCuttingSpeed() < cur
+                  && (this.Mode.currentMode.equalsIgnoreCase("Strict") || MoveMeHelp.getCuttingSpeed() < cur * 1.0601F)
                   && MoveMeHelp.isMoving()) {
                   mc.timer.speed = 1.0600014F;
                   Timer.forceTimer(1.0600014F);
@@ -428,7 +522,7 @@ public class Strafe extends Module {
                }
 
                if (Speed.get.actived
-                  && Speed.get.AntiCheat.currentMode.equalsIgnoreCase("NCP")
+                  && Speed.get.AntiCheat.currentMode.contains("NCP")
                   && (double)Speed.ncpSpeed > finalSpeed
                   && Speed.get.DamageBoost.getBool()) {
                   finalSpeed = (double)Speed.ncpSpeed;
@@ -493,29 +587,23 @@ public class Strafe extends Module {
       double ncpMin = 0.0;
       if (mc.world.getBlockState(new BlockPos(x, y - 0.2F, z)).getBlock() != Blocks.WATER
          && mc.world.getBlockState(new BlockPos(x, y - 0.2F, z)).getBlock() != Blocks.LAVA) {
+         boolean hasSpeed2 = Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1))
+            && Wrapper.getPlayer().getActivePotionEffect(Potion.getPotionById(1)).getAmplifier() >= 1;
+         boolean hasSpeed = Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1))
+            && Wrapper.getPlayer().getActivePotionEffect(Potion.getPotionById(1)).getAmplifier() == 0;
          if (Minecraft.player.isJumping) {
-            if (Minecraft.player.isMoving() || mc.gameSettings.keyBindBack.isKeyDown()) {
-               if (Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1))) {
-                  ncpMin = MoveMeHelp.getSpeed() < 0.382 ? 0.382 : MoveMeHelp.getSpeed();
+            if (Minecraft.player.isMoving()) {
+               if (hasSpeed2) {
+                  ncpMin = MoveMeHelp.getSpeed() < 0.38 ? 0.38 : MoveMeHelp.getSpeed();
+               } else if (hasSpeed) {
+                  ncpMin = MoveMeHelp.getSpeed() < 0.33 ? 0.33 : MoveMeHelp.getSpeed();
                } else {
                   ncpMin = MoveMeHelp.getSpeed() < 0.266 ? 0.266 : MoveMeHelp.getSpeed();
                }
             }
-
-            if (!Minecraft.player.isMoving() && mc.gameSettings.keyBindForward.isKeyDown()) {
-               if (MoveMeHelp.getSpeed() < (Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1)) ? 0.395 : 0.265)) {
-                  if (Minecraft.player.onGround) {
-                     ncpMin = Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1)) ? 0.35 : 0.24;
-                  } else {
-                     ncpMin = Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1)) ? 0.385 : 0.26;
-                  }
-               } else if (!Minecraft.player.onGround) {
-                  ncpMin = MoveMeHelp.getSpeed();
-               }
-            }
          } else if (mc.world.getBlockState(new BlockPos(x, y - 0.2F, z)).getBlock() != Blocks.WATER
             && mc.world.getBlockState(new BlockPos(x, y - 0.2F, z)).getBlock() != Blocks.LAVA) {
-            if (Wrapper.getPlayer().isPotionActive(Potion.getPotionById(1))) {
+            if (hasSpeed2) {
                ncpMin = MoveMeHelp.getSpeed() <= (Minecraft.player.isSprinting() ? 0.238 : 0.279)
                   ? (Minecraft.player.isSprinting() ? 0.238 : 0.279)
                   : MoveMeHelp.getSpeed();
@@ -619,20 +707,76 @@ public class Strafe extends Module {
          }
 
          if (this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC")) {
-            double strafeStrenghRebound = 1.0;
-            double strafeStrenghNormal = Minecraft.player.onGround ? 1.0 : 0.0;
-            double maxRebound = Minecraft.player.onGround ? 0.21 : 0.184;
-            boolean reboundSet = !Minecraft.player.isSneaking() || Minecraft.player.hasNewVersionMoves && Minecraft.player.isLay;
+            double maxRebound = Minecraft.player.onGround ? 0.224 : 0.24659 - (Minecraft.player.ticksExisted % 2 == 0 ? 1.0E-4 : 0.0);
             double speed = MoveMeHelp.getSpeed();
+            double strafeStrenghRebound = 1.0;
+            double strafeStrenghNormal = !Minecraft.player.onGround && !Speed.canMatrixBoost()
+               ? 1.0 - MathUtils.clamp(speed / maxRebound * 1.25, 0.0, 1.0)
+               : 1.0;
+            boolean reboundSet = !Minecraft.player.isSneaking() || Minecraft.player.hasNewVersionMoves && Minecraft.player.isLay;
             double curSpeed = speed;
-            double maxNoStrafeSpeed = Minecraft.player.onGround ? 0.04 : 0.14;
+            double maxNoStrafeSpeed = Minecraft.player.onGround
+               ? (
+                  !Minecraft.player.isPotionActive(MobEffects.SPEED)
+                        && !(Minecraft.player.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).getAttributeValue() > 0.111)
+                     ? 0.0
+                     : 0.18
+               )
+               : (Minecraft.player.isSprinting() ? 0.14 : 0.08);
             if (reboundSet && speed < maxRebound) {
                curSpeed = maxRebound;
             }
 
+            if (this.CollideBoost.getBool()
+               && MoveMeHelp.isMoving()
+               && speed > 0.249
+               && (!TargetStrafe.goStrafe() || TargetStrafe.get.SmartSpeed.getBool() || !TargetStrafe.get.CollideBoost.getBool())) {
+               List<EntityLivingBase> bases = mc.world
+                  .getLoadedEntityList()
+                  .stream()
+                  .<EntityLivingBase>map(Entity::getLivingBaseOf)
+                  .filter(Objects::nonNull)
+                  .filter(
+                     base -> base != Minecraft.player
+                           && !(base instanceof EntityArmorStand)
+                           && base.canBeCollidedWith()
+                           && Minecraft.player
+                              .boundingBox
+                              .addExpandXZ(0.4)
+                              .intersectsWith(
+                                 new AxisAlignedBB(
+                                    base.posX - (double)base.width / 2.0,
+                                    base.posY,
+                                    base.posZ - (double)base.width / 2.0,
+                                    base.posX + (double)base.width / 2.0,
+                                    base.posY + 1.2,
+                                    base.posZ + (double)base.width / 2.0
+                                 )
+                              )
+                  )
+                  .toList();
+               if (!bases.isEmpty()) {
+                  int boostCrate = 1;
+                  double boostAddition = (Minecraft.player.onGround && !Minecraft.player.isJumping() ? 0.23 : 0.12) * (double)boostCrate;
+                  double moveYaw = Math.toRadians((double)MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
+                  Minecraft.player.addVelocity(-Math.sin(moveYaw) * boostAddition, 0.0, Math.cos(moveYaw) * boostAddition);
+                  speed = MoveMeHelp.getSpeed();
+                  if (speed > 0.8F) {
+                     speed = 0.8F;
+                  }
+
+                  MoveMeHelp.setMotionSpeed(
+                     false,
+                     true,
+                     speed,
+                     (float)MoveMeHelp.getDirDiffOfMotions(Minecraft.player.motionX, Minecraft.player.motionZ) + Minecraft.player.rotationYaw
+                  );
+               }
+            }
+
             if (speed >= maxNoStrafeSpeed) {
                if (speed < maxRebound) {
-                  MoveMeHelp.setSmoothSpeed(curSpeed, strafeStrenghRebound, true);
+                  MoveMeHelp.setSmoothSpeed(curSpeed, strafeStrenghRebound, Minecraft.player.isSneaking());
                } else if (strafeStrenghNormal != 0.0) {
                   MoveMeHelp.setSmoothSpeed(speed, strafeStrenghNormal, false);
                }
@@ -751,14 +895,14 @@ public class Strafe extends Module {
             boolean gr = Minecraft.player.onGround && Minecraft.player.isCollidedVertically && !Minecraft.player.isJumping();
             if (gr) {
                if (Minecraft.player.isMoving() && mc.gameSettings.keyBindForward.isKeyDown()) {
-                  float var33 = 0.2845F;
+                  float var42 = 0.2845F;
                } else {
-                  float var32 = mc.gameSettings.keyBindForward.isKeyDown() ? 0.2805F : 0.26F;
+                  float var41 = mc.gameSettings.keyBindForward.isKeyDown() ? 0.2805F : 0.26F;
                }
             } else if ((float)MoveMeHelp.getSpeed() > 0.3F) {
                float var10000 = (float)MoveMeHelp.getSpeed();
             } else {
-               float var31 = 0.3F;
+               float var40 = 0.3F;
             }
 
             double WsprNumb = (double)(0.2499F - (Minecraft.player.ticksExisted % 2 == 0 ? 5.0E-4F : 0.0F));
@@ -792,14 +936,14 @@ public class Strafe extends Module {
             boolean grx = Minecraft.player.onGround && Minecraft.player.isCollidedVertically && !Minecraft.player.isJumping();
             if (grx) {
                if (Minecraft.player.isMoving() && mc.gameSettings.keyBindForward.isKeyDown()) {
-                  float var37 = 0.2845F;
+                  float var46 = 0.2845F;
                } else {
-                  float var36 = mc.gameSettings.keyBindForward.isKeyDown() ? 0.2805F : 0.26F;
+                  float var45 = mc.gameSettings.keyBindForward.isKeyDown() ? 0.2805F : 0.26F;
                }
             } else if ((float)MoveMeHelp.getSpeed() > 0.3F) {
-               float var34 = (float)MoveMeHelp.getSpeed();
+               float var43 = (float)MoveMeHelp.getSpeed();
             } else {
-               float var35 = 0.3F;
+               float var44 = 0.3F;
             }
 
             double WsprNumb = (double)(0.2499F - (Minecraft.player.ticksExisted % 2 == 0 ? 1.0E-6F : 0.0F));
@@ -941,7 +1085,7 @@ public class Strafe extends Module {
                }
             }
 
-            if (this.Mode.currentMode.equalsIgnoreCase("Guardian") && move && MoveMeHelp.moveKeysPressed()) {
+            if (this.Mode.currentMode.equalsIgnoreCase("Guardian") && move && MoveMeHelp.isMoving()) {
                if (MoveMeHelp.getSpeed() != 0.0) {
                   MoveMeHelp.setSpeed(MoveMeHelp.getSpeed());
                }

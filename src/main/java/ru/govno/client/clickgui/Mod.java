@@ -72,11 +72,11 @@ public class Mod
     public boolean wantToClick2 = true;
 
     float maxBindTime() {
-        return 850.0f;
+        return this.keyBindToSet == 211 ? 700.0f : 800.0f;
     }
 
     void updateBinding() {
-        if (!this.binding || this.keyBindToSet == -1 || !Keyboard.isKeyDown(this.keyBindToSet)) {
+        if (!this.binding || this.keyBindToSet == -1 || !Keyboard.isKeyDown((int)this.keyBindToSet)) {
             this.bindHoldAnim.to = 0.0f;
             this.holdBindTimer.reset();
         }
@@ -183,7 +183,7 @@ public class Mod
     }
 
     String getKeyName(int key, boolean staples) {
-        return key == 0 ? (staples ? "[NONE]" : "-") : (staples ? "[" : "") + Keyboard.getKeyName(key).toUpperCase() + (staples ? "]" : "");
+        return key == 0 ? (staples ? "[NONE]" : "-") : (staples ? "[" : "") + Keyboard.getKeyName((int)key).toUpperCase() + (staples ? "]" : "");
     }
 
     @Override
@@ -217,7 +217,7 @@ public class Mod
         String bindShowText = this.getKeyName(this.module.getBind(), true);
         this.openAnim.to = this.height;
         this.openAnim.speed = 0.15f + (Math.abs(MathUtils.getDifferenceOf(this.openAnim.anim, this.height)) < 5.5 || this.height < this.openAnim.anim && this.open ? 0.5f : 0.0f);
-        this.bindShowAnim.to = Keyboard.isKeyDown(56) && this.module.bind != 0 ? 1.0f : 0.0f;
+        this.bindShowAnim.to = Keyboard.isKeyDown((int)56) && this.module.bind != 0 ? 1.0f : 0.0f;
         boolean bl2 = hover = this.ishover(x, y, x + this.getWidth(), y + this.height, mouseX, mouseY) && !Client.clientColosUI.isHovered();
         if (this.prevHover != hover) {
             if (hover && !this.binding && !(this.bindingAnim.anim > 0.003f) && !this.open && !(MathUtils.getDifferenceOf(this.openAnim.anim, this.openAnim.to) > 0.0) && MathUtils.getDifferenceOf(ClickGuiScreen.scrollSmoothX, 0.0f) < 0.1 && MathUtils.getDifferenceOf(ClickGuiScreen.scrollSmoothY, 0.0f) < 0.1) {
@@ -262,33 +262,33 @@ public class Mod
                     float ys;
                     float h = 17.0f;
                     RenderUtils.glRenderStart();
-                    GL11.glPointSize(0.25f);
-                    GL11.glBegin(0);
-                    RenderUtils.glColor(ColorUtils.swapAlpha(-1, 255.0f * alphaPC * MathUtils.clamp(this.sdvig.anim / 3.0f, 0.0f, 1.0f)));
+                    GL11.glPointSize((float)0.25f);
+                    GL11.glBegin((int)0);
                     for (ys = y + 1.0f; ys < y + h; ys += 0.5f) {
                         centerDiff = (ys - (y + 0.5f)) / (h - 1.0f);
                         centerDiff = (float)MathUtils.easeInOutQuadWave(centerDiff);
                         xs = x + 1.5f + MathUtils.clamp(this.sdvig.anim / 1.5f - 0.5f, 0.0f, 10.0f) * centerDiff;
-                        GL11.glVertex2d(xs, ys);
+                        RenderUtils.glColor(ColorUtils.swapAlpha(-1, 255.0f * alphaPC * MathUtils.clamp(this.sdvig.anim / 3.0f, 0.0f, 1.0f) * MathUtils.clamp(0.5f + centerDiff / 2.0f, 0.0f, 1.0f)));
+                        GL11.glVertex2d((double)xs, (double)ys);
                     }
                     GL11.glEnd();
-                    GL11.glPointSize(1.0f);
-                    GL11.glBegin(9);
-                    RenderUtils.glColor(ColorUtils.swapAlpha(-1, this.alpha.anim / 2.0f * alphaPC * MathUtils.clamp(this.sdvig.anim / 2.0f, 0.0f, 1.0f)));
-                    GL11.glVertex2d(x + 1.0f, y + 0.5f);
+                    GL11.glPointSize((float)1.0f);
+                    GL11.glBegin((int)9);
+                    RenderUtils.glColor(ColorUtils.swapAlpha(-1, this.alpha.anim / 4.0f * alphaPC * MathUtils.clamp(this.sdvig.anim / 2.0f, 0.0f, 1.0f)));
+                    GL11.glVertex2d((double)(x + 1.0f), (double)(y + 0.5f));
                     for (ys = y + 0.5f; ys < y + 0.5f + h; ys += 0.5f) {
                         centerDiff = (ys - (y + 0.5f)) / h;
                         centerDiff = (float)MathUtils.easeInOutQuadWave(centerDiff);
                         xs = x + 1.0f + this.sdvig.anim / 1.5f * centerDiff;
-                        GL11.glVertex2d(xs, ys);
+                        GL11.glVertex2d((double)xs, (double)ys);
                     }
-                    GL11.glVertex2d(x + 1.0f, y + 0.5f + h);
+                    GL11.glVertex2d((double)(x + 1.0f), (double)(y + 0.5f + h));
                     GL11.glEnd();
                     RenderUtils.glRenderStop();
                 }
             }
             if (this.last) {
-                float r = 3.0f;
+                final float r = 3.0f;
                 RenderUtils.drawFullGradientRectPro(x + 1.0f, y + 0.5f, x + this.getWidth() + 0.5f, y + this.openAnim.anim + 1.0f - r, col4, col3, col2, col1, true);
                 RenderUtils.drawFullGradientRectPro(x + 1.0f + r, y + this.openAnim.anim + 1.0f - r, x + this.getWidth() + 0.5f - r, y + this.openAnim.anim + 1.0f, col4, col3, col3, col4, true);
                 RenderUtils.drawCroneShadow(x + 1.0f + r, y + this.openAnim.anim + 1.0f - r, -90, 0, 0.0f, r - 0.5f, col4, col4, true);
@@ -296,7 +296,7 @@ public class Mod
                 RenderUtils.drawCroneShadow(x + this.getWidth() + 0.5f - r, y + this.openAnim.anim + 1.0f - r, 0, 90, 0.0f, r - 0.5f, col3, col3, true);
                 RenderUtils.drawCroneShadow(x + this.getWidth() + 0.5f - r, y + this.openAnim.anim + 1.0f - r, 0, 90, r - 0.5f, 0.5f, col3, ColorUtils.swapAlpha(col3, 0.0f), true);
             } else if (this.first) {
-                float r = 3.0f;
+                final float r = 3.0f;
                 RenderUtils.drawFullGradientRectPro(x + 1.0f, y + 0.5f + r, x + this.getWidth() + 0.5f, y + this.openAnim.anim + 1.0f, col4, col3, col2, col1, true);
                 RenderUtils.drawFullGradientRectPro(x + 1.0f + r, y + 0.5f, x + this.getWidth() + 0.5f - r, y + 0.5f + r, col1, col2, col2, col1, true);
                 RenderUtils.drawCroneShadow(x + 1.0f + r, y + 0.5f + r, 180, 270, 0.0f, r - 0.5f, col1, col1, true);
@@ -308,7 +308,7 @@ public class Mod
                 float togPC = this.toggleAnim.anim;
                 float togAlphaPC = ((double)this.toggleAnim.anim > 0.5 ? 1.0f - this.toggleAnim.anim : this.toggleAnim.anim) * 4.0f;
                 togAlphaPC = togAlphaPC > 1.0f ? 1.0f : togAlphaPC;
-                int togColor = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(col1, -1, 0.4f), ScaledAlphaPercent * ScaledAlphaPercent * togAlphaPC * this.alpha.anim);
+                int togColor = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(col1, this.module.isLocked() ? ColorUtils.getColor(255, 0, 0) : -1, 0.4f), Math.min(ScaledAlphaPercent * ScaledAlphaPercent * togAlphaPC * this.alpha.anim * (this.module.isLocked() ? 6.0f : 1.0f), 255.0f));
                 if (ColorUtils.getAlphaFromColor(togColor) >= 1) {
                     float x1 = x + 1.0f;
                     float x2 = x + this.getWidth() + 0.5f;
@@ -341,19 +341,23 @@ public class Mod
                     togAlphaPC = togAlphaPC > 1.0f ? 1.0f : togAlphaPC;
                     float tLeft = this.module.actived ? 0.0f : togAlphaPC;
                     float tRight = this.module.actived ? togAlphaPC : 0.0f;
-                    this.triangleGroup.setColors(ColorUtils.getOverallColorFrom(pCol1, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol1)), tLeft / 3.0f), ColorUtils.getOverallColorFrom(pCol2, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol2)), tRight / 3.0f), ColorUtils.getOverallColorFrom(pCol3, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol3)), tRight / 3.0f), ColorUtils.getOverallColorFrom(pCol4, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol4)), tLeft / 3.0f));
-                    GL11.glTranslated(x, y, 0.0);
+                    this.triangleGroup.setColors(ColorUtils.getOverallColorFrom(pCol1, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol1)), tLeft / 2.0f), ColorUtils.getOverallColorFrom(pCol2, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol2)), tRight / 3.0f), ColorUtils.getOverallColorFrom(pCol3, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol3)), tRight / 3.0f), ColorUtils.getOverallColorFrom(pCol4, ColorUtils.swapAlpha(-1, ColorUtils.getAlphaFromColor(pCol4)), tLeft / 2.0f));
+                    GL11.glTranslated((double)x, (double)y, (double)0.0);
                     this.triangleGroup.drawAllInZone(-10.0f, 16.0f, this.getWidth() + 20.0f, this.height + 12.0f, alphaPC / 5.0f, true);
-                    GL11.glTranslated(-x, -y, 0.0);
+                    GL11.glTranslated((double)(-x), (double)(-y), (double)0.0);
                 }
-                i = 19;
-                for (Set set2 : this.sets) {
-                    if (!set2.setting.isVisible()) continue;
-                    float h = set2.getHeight();
-                    if ((float)i + h / 4.0f < this.openAnim.anim && y + (float)i >= -h && y + (float)i <= (float)(sr.getScaledHeight() + 1) && x + set2.getWidth() >= 0.0f && x <= (float)(sr.getScaledWidth() + 1)) {
-                        set2.drawScreen(x + 1.0f, y + (float)i, step + 2, mouseX, mouseY, partialTicks);
+                int n = i = this.module.isLocked() ? 35 : 19;
+                if (this.module.isLocked()) {
+                    Fonts.neverlose500_18.drawString("Settings was locked", x + this.getWidth() / 2.0f - (float)Fonts.neverlose500_18.getStringWidth("Settings was locked") / 2.0f, y + 24.5f, ColorUtils.getColor(155, (int)(155.0f * ScaledAlphaPercent * ScaledAlphaPercent)));
+                } else {
+                    for (Set set2 : this.sets) {
+                        if (!set2.setting.isVisible()) continue;
+                        float h = set2.getHeight();
+                        if ((float)i + h / 4.0f < this.openAnim.anim && y + (float)i >= -h && y + (float)i <= (float)(sr.getScaledHeight() + 1) && x + set2.getWidth() >= 0.0f && x <= (float)(sr.getScaledWidth() + 1)) {
+                            set2.drawScreen(x + 1.0f, y + (float)i, step + 2, mouseX, mouseY, partialTicks);
+                        }
+                        i = (int)((float)i + (h + 1.0f));
                     }
-                    i = (int)((float)i + (h + 1.0f));
                 }
             }
             StencilUtil.uninitStencilBuffer();
@@ -367,9 +371,6 @@ public class Mod
         float bindH = bindY2 - bindY;
         float bindCircleX = bindX + bindW / 2.0f;
         float bindCircleY = bindY + bindH / 2.0f;
-        GL11.glTranslated(bindCircleX, bindCircleY, 0.0);
-        this.drawAllBindNanoParticles(MathUtils.clamp(ClickGuiScreen.globalAlpha.anim / 255.0f * ClickGuiScreen.scale.anim, 0.0f, 1.0f));
-        GL11.glTranslated(-bindCircleX, -bindCircleY, 0.0);
         float bindAnim = this.bindingAnim.getAnim();
         if (bindAnim > 0.01f) {
             float bindAlpha = bindAnim * 255.0f * ScaledAlphaPercent * ScaledAlphaPercent;
@@ -415,10 +416,10 @@ public class Mod
                 effectAlpha = effectAlpha < 0.0f ? 0.0f : ((effectAlpha *= 2.0f) > 1.0f ? 1.0f : effectAPC);
                 bindCircleColor = ColorUtils.swapAlpha(-1, bindAlpha * effectAlpha);
                 for (int ii = 0; ii <= 12; ++ii) {
-                    this.addNanoBindParticle(0.0f, 0.0f, (float)ii / 12.0f - 0.083333336f * effectAlpha * 6.0f, bindProgressCircleRange - 3.0f + (1.0f - effectAPC * effectAPC) * 8.0f + 10.0f * ((double)effectAlpha > 0.5 ? 1.0f - effectAlpha : effectAlpha) * 2.0f);
+                    this.addNanoBindParticle(0.0f, 0.0f, (float)ii / 12.0f - 0.083333336f * (float)(MathUtils.easeOutElastic(effectAlpha) + MathUtils.easeInCircle(effectAlpha)) / 2.0f * 6.0f, bindProgressCircleRange - 3.0f + (1.0f - effectAPC * effectAPC) * 8.0f + 10.0f * ((double)effectAlpha > 0.5 ? 1.0f - effectAlpha : effectAlpha) * 2.0f);
                 }
-                float bindCircleEffWidth = 3.0f + 4.0f * effectAlpha;
-                float bindEffectCircleRange = bindProgressCircleBGRange - 3.0f * effectAPC;
+                float bindCircleEffWidth = 1.0f + 14.0f * (float)MathUtils.easeInOutQuadWave(effectAlpha);
+                float bindEffectCircleRange = bindProgressCircleBGRange * 2.0f * effectAPC;
                 int effCol = ColorUtils.swapAlpha(ColorUtils.swapDark(bindCircleColor, effectAPC), (float)ColorUtils.getAlphaFromColor(bindCircleColor) * effectAPC);
                 RenderUtils.drawClientCircleWithOverallToColor(bindCircleX, bindCircleY, bindEffectCircleRange, 359.0f, bindCircleEffWidth, effectAPC, effCol, 1.0f);
                 if (bindAlpha >= 33.0f) {
@@ -435,6 +436,9 @@ public class Mod
                 }
             }
         }
+        GL11.glTranslated((double)bindCircleX, (double)bindCircleY, (double)0.0);
+        this.drawAllBindNanoParticles(MathUtils.clamp(ClickGuiScreen.globalAlpha.anim / 255.0f * ClickGuiScreen.scale.anim, 0.0f, 1.0f));
+        GL11.glTranslated((double)(-bindCircleX), (double)(-bindCircleY), (double)0.0);
         float bindDePC = 1.0f - bindAnim;
         boolean bl3 = hasSets = this.module.isVisible() && this.sets.stream().anyMatch(set -> set.setting.isVisible());
         if (hasSets && (float)((int)(this.alpha.anim * 0.87058824f + 36.0f)) * bindDePC > 32.0f) {
@@ -466,7 +470,7 @@ public class Mod
         }
         this.bindConflictAnim.to = this.hasBindConflict() ? 1.0f : 0.0f;
         float bindConflictAnim = this.bindConflictAnim.getAnim();
-        if ((double)bindConflictAnim > 0.03 && ColorUtils.getAlphaFromColor(warnColor = ColorUtils.swapAlpha(-1, MathUtils.clamp(this.alpha.anim, 85.0f, 255.0f) * ScaledAlphaPercent * ScaledAlphaPercent)) >= 1) {
+        if ((double)bindConflictAnim > 0.03 && ColorUtils.getAlphaFromColor(warnColor = ColorUtils.swapAlpha(-1, MathUtils.clamp(this.alpha.anim * ScaledAlphaPercent * ScaledAlphaPercent, 85.0f, 255.0f))) >= 1) {
             float warnSize = 18.0f;
             float warnX = x + this.getWidth() - 0.5f - 16.0f * (hasSets ? 1.0f : bindAnim) - warnSize;
             float warnY = y - 0.5f;
@@ -477,21 +481,29 @@ public class Mod
             RenderUtils.customScaledObject2D(warnX, warnY, warnSize, warnSize, bindConflictAnim);
             RenderUtils.customRotatedObject2D(warnX, warnY, warnSize, warnSize, bindConflictAngleAnim);
             Minecraft.getMinecraft().getTextureManager().bindTexture(ClickGuiScreen.BOUND_CONFLICT);
-            GL11.glTranslated(warnX, warnY, 0.0);
+            GL11.glTranslated((double)warnX, (double)warnY, (double)0.0);
             RenderUtils.glColor(warnColor);
-            GL11.glBlendFunc(770, 32772);
-            Gui.drawModalRectWithCustomSizedTexture(0.0f, 0.0f, 0.0f, 0.0f, warnSize, warnSize, warnSize, warnSize);
-            GL11.glBlendFunc(770, 771);
+            GL11.glBlendFunc((int)770, (int)32772);
+            Gui.drawModalRectWithCustomSizedTexture((float)0.0f, (float)0.0f, (float)0.0f, (float)0.0f, (float)warnSize, (float)warnSize, (float)warnSize, (float)warnSize);
+            GL11.glBlendFunc((int)770, (int)771);
             GlStateManager.resetColor();
             GL11.glPopMatrix();
         }
         if (ColorUtils.getAlphaFromColor(modCol = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(cr = ColorUtils.getColor((int)(85.0f + this.alpha.anim / 255.0f * 110.0f)), clC = ClickGuiScreen.getColor((int)(y + 20.0f), this.module.category), 0.15f), MathUtils.clamp((float)ColorUtils.getAlphaFromColor(cr) * ScaledAlphaPercent * ScaledAlphaPercent, 0.0f, 255.0f))) >= 33) {
             float moduleNameStringX = x + (this.sdvig.anim + (float)(Fonts.roboto_16.getStringWidth(bindShowText) + 5) * this.bindShowAnim.getAnim()) + 4.0f;
             float moduleNameStringY = y + 8.75f - (float)(Fonts.roboto_16.getHeight() / 2) - 0.5f;
+            moduleNameStringX = (float)((int)(moduleNameStringX * 2.0f)) / 2.0f;
+            moduleNameStringY = (float)((int)(moduleNameStringY * 2.0f)) / 2.0f;
             String modNameString = (Client.clickGuiScreen.moduleHasEqualSearch(this.module) ? "\u00a7c->\u00a7e " : "") + modulename;
-            Fonts.comfortaaRegular_16.drawStringWithShadow(modNameString, moduleNameStringX, moduleNameStringY, modCol);
-            if (this.module.isBetaModule()) {
-                this.drawBetaIcon(moduleNameStringX + (float)Fonts.comfortaaRegular_16.getStringWidth(modNameString) + 1.0f, moduleNameStringY - 2.0f, ScaledAlphaPercent * ScaledAlphaPercent);
+            if (this.module.isActived()) {
+                Fonts.comfortaaRegular_16.drawStringWithShadow(modNameString, moduleNameStringX, moduleNameStringY, modCol);
+            } else {
+                Fonts.comfortaaRegular_16.drawString(modNameString, moduleNameStringX, moduleNameStringY, modCol);
+            }
+            if (this.module.isLocked()) {
+                this.drawIcon(moduleNameStringX + (float)Fonts.comfortaaRegular_16.getStringWidth(modNameString) + 1.0f, moduleNameStringY - 2.0f, ScaledAlphaPercent, "locked");
+            } else if (this.module.isBetaModule()) {
+                this.drawIcon(moduleNameStringX + (float)Fonts.comfortaaRegular_16.getStringWidth(modNameString) + 1.0f, moduleNameStringY - 2.0f, ScaledAlphaPercent, "beta");
             }
         }
         if (Client.clickGuiScreen.moduleHasEqualSearch(this.module)) {
@@ -556,9 +568,10 @@ public class Mod
     @Override
     public void mouseClicked(int x, int y, int mouseX, int mouseY, int mouseButton) {
         super.mouseClicked(x, y, mouseX, mouseY, mouseButton);
+        boolean lock = this.module.isLocked();
         if (this.wantToClick || this.wantToClick2) {
-            if (this.ishover(x, y, (float)x + this.getWidth(), y + 16, mouseX, mouseY)) {
-                if (mouseButton == 2) {
+            if (this.ishover(x + 1, y - 2, (float)x + this.getWidth(), y + 14, mouseX, mouseY)) {
+                if (mouseButton == 2 && !lock) {
                     boolean bl = this.binding = !this.binding;
                     if (this.binding && this.module.getBind() == 0) {
                         for (int s = 0; s < 20; ++s) {
@@ -569,7 +582,7 @@ public class Mod
                     }
                     ClientTune.get.playGuiModuleBindingToggleSong(this.binding);
                 }
-                if (this.ishover((float)x + this.getWidth() - 16.0f, y, (float)x + this.getWidth(), y + 16, mouseX, mouseY) && mouseButton == 1 && this.module.settings.stream().filter(Settings::isVisible).collect(Collectors.toList()).size() > 0) {
+                if (this.ishover((float)x + this.getWidth() - 16.0f, y - 2, (float)x + this.getWidth(), y + 14, mouseX, mouseY) && (mouseButton == 1 || mouseButton == 0) && this.module.settings.stream().filter(Settings::isVisible).collect(Collectors.toList()).size() > 0) {
                     boolean bl = this.open = !this.open;
                     if (this.open) {
                         Client.clickGuiScreen.panels.stream().filter(panel -> panel.open).forEach(panel -> panel.mods.stream().filter(mod -> mod != this).filter(mod -> mod.open).forEach(mod -> {
@@ -579,11 +592,11 @@ public class Mod
                     } else {
                         this.sets.stream().map(Set::getHasModes).filter(Objects::nonNull).filter(mode -> mode.open).forEach(mode -> {
                             mode.open = false;
-                            ClientTune.get.playGuiCheckOpenOrCloseSong(false);
+                            mode.playClose = true;
                         });
                         this.sets.stream().map(Set::getHasColors).filter(Objects::nonNull).filter(color -> color.open).forEach(color -> {
                             color.open = false;
-                            ClientTune.get.playGuiCheckOpenOrCloseSong(false);
+                            color.playClose = true;
                         });
                     }
                     ClientTune.get.playGuiModuleOpenOrCloseSong(this.open);
@@ -592,8 +605,13 @@ public class Mod
                         ClientTune.get.playGuiModuleBindingToggleSong(this.binding);
                     }
                 }
-                if (!(this.ishover((float)x + this.getWidth() - 16.0f, y, (float)x + this.getWidth(), y + 16, mouseX, mouseY) && this.module.settings.stream().filter(Settings::isVisible).collect(Collectors.toList()).size() != 0 || mouseButton != 0)) {
+                if (!(this.ishover((float)x + this.getWidth() - 16.0f, y - 2, (float)x + this.getWidth(), y + 14, mouseX, mouseY) && this.module.settings.stream().filter(Settings::isVisible).collect(Collectors.toList()).size() != 0 || mouseButton != 0)) {
                     this.module.toggle(!this.module.actived);
+                    if (this.module.isActived() && this.open) {
+                        this.open = false;
+                        ClientTune.get.playGuiModuleOpenOrCloseSong(false);
+                        this.height = this.getHeight();
+                    }
                     this.toggleAnim.setAnim(0.0f);
                     this.toggleAnim.to = 1.0f;
                     if (this.binding) {
@@ -626,7 +644,7 @@ public class Mod
                     i = (int)((float)i + (set.getHeight() + 1.0f));
                 }
             }
-            if (this.ishover(x, y, (float)x + this.getWidth(), (float)y + this.getHeight(), mouseX, mouseY)) {
+            if (this.ishover(x + 1, y - 2, (float)x + this.getWidth(), (float)y + this.getHeight() - 2.0f, mouseX, mouseY)) {
                 this.wantToClick2 = false;
                 this.wantToClick = false;
             }
@@ -637,21 +655,24 @@ public class Mod
     public float getHeight() {
         int i = 16 + (this.open ? 6 : 0);
         if (this.open) {
-            for (Set set : this.sets) {
-                i = (int)((float)i + (set != null && set.setting.isVisible() ? set.getHeight() + 1.0f : 0.0f));
+            if (this.module.isLocked()) {
+                i = (int)((float)i + 16.0f);
+            } else {
+                for (Set set : this.sets) {
+                    i = (int)((float)i + (set != null && set.setting.isVisible() ? set.getHeight() + 1.0f : 0.0f));
+                }
             }
         }
         return i;
     }
 
-    private void drawBetaIcon(float x, float y, float alphaPC) {
+    private void drawIcon(float x, float y, float alphaPC, String str) {
         if ((double)alphaPC < 0.1) {
             return;
         }
         int bgColor = ColorUtils.getColor(9, 9, 17, 100.0f * alphaPC);
         int outBgColL = ColorUtils.getColor(180, 180, 130, 30.0f * alphaPC);
         int outBgColR = ColorUtils.getColor(180, 180, 130, 80.0f * alphaPC);
-        String str = "beta";
         CFontRenderer font = Fonts.mntsb_10;
         float strW = font.getStringWidth(str);
         float xOff = 0.5f;
@@ -671,7 +692,7 @@ public class Mod
         float textY = y + yOff + 1.0f;
         int charIndex = 0;
         int fColor = ColorUtils.getColor(255, 255, 255, 60.0f * alphaPC);
-        int sColor = ColorUtils.getColor(255, 190, 0, 255.0f * alphaPC);
+        int sColor = ColorUtils.getColor(255, 190, 0, Math.min(255.0f * alphaPC, 255.0f));
         for (char theChar : str.toCharArray()) {
             String charStr = String.valueOf(theChar);
             float charW = font.getStringWidth(charStr);
@@ -695,7 +716,7 @@ public class Mod
         float y;
         float speed = (float)Math.random() / 22.25f;
         float radian = (float)Math.random() * 360.0f;
-        float maxTime = 650.0f;
+        float maxTime = 450.0f + (float)((int)(150.0 * Math.random()));
         long startTime = System.currentTimeMillis();
 
         NanoBindParticle(float circleX, float circleY, float holdProgress, float ofRange) {
@@ -735,23 +756,22 @@ public class Mod
             if ((alphaPC *= this.alphaPC()) == 0.0f) {
                 return;
             }
-            int color = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ClickGuiScreen.getColor((int)((this.x + this.y) * 3.0f), Mod.this.module.category), -1, 0.5f - alphaPC * alphaPC * 0.5f), 255.0f * alphaPC);
-            GL11.glEnable(3042);
-            GL11.glBlendFunc(770, 32772);
-            GL11.glDisable(3553);
-            GL11.glDisable(3008);
-            GL11.glEnable(2832);
-            GL11.glPointSize(alphaPC * alphaPC * 7.5f);
+            int color = ColorUtils.swapAlpha(ColorUtils.getOverallColorFrom(ClickGuiScreen.getColor((int)((this.x + this.y) * 3.0f), Mod.this.module.category), -1, 0.5f - alphaPC * alphaPC * 0.5f), 255.0f * (float)MathUtils.easeInOutQuad(alphaPC));
+            GL11.glEnable((int)3042);
+            GL11.glBlendFunc((int)770, (int)32772);
+            GL11.glDisable((int)3553);
+            GL11.glDisable((int)3008);
+            GL11.glEnable((int)2832);
+            GL11.glPointSize((float)(alphaPC * alphaPC * (this.maxTime / 1000.0f) * 11.0f));
             RenderUtils.glColor(color);
-            GL11.glBegin(0);
-            GL11.glVertex2d(this.x, this.y);
+            GL11.glBegin((int)0);
+            GL11.glVertex2d((double)this.x, (double)this.y);
             GL11.glEnd();
-            GL11.glPointSize(1.0f);
-            GL11.glEnable(3008);
-            GL11.glEnable(3553);
-            GL11.glBlendFunc(770, 771);
+            GL11.glPointSize((float)1.0f);
+            GL11.glEnable((int)3008);
+            GL11.glEnable((int)3553);
+            GL11.glBlendFunc((int)770, (int)771);
             GlStateManager.resetColor();
         }
     }
 }
-

@@ -42,7 +42,11 @@ public class Charming extends Module {
    public Charming.Charm charm;
 
    private void reinitActiveResourceGroup(String name) {
-      this.ACTIVE_RESOURCE_LOCATIONS = new Charming.ResourceLocationWithSizes(new ResourceLocation("vegaline/modules/charming/models/default/" + name + ".png"));
+      if (this.ACTIVE_RESOURCE_LOCATIONS == null || !this.ACTIVE_RESOURCE_LOCATIONS.getResource().getResourcePath().contains(name)) {
+         this.ACTIVE_RESOURCE_LOCATIONS = new Charming.ResourceLocationWithSizes(
+            new ResourceLocation("vegaline/modules/charming/models/default/" + name + ".png")
+         );
+      }
    }
 
    public Charming() {
@@ -526,7 +530,7 @@ public class Charming extends Module {
          if (HitAura.TARGET_ROTS != null && (double)Minecraft.player.getDistanceToEntity(HitAura.TARGET_ROTS) < 20.0) {
             this.folowEntity = HitAura.TARGET_ROTS;
          } else {
-            Entity firstItemEntity = Module.mc.world.getLoadedEntityList().stream().map(Entity::getItemOf).filter(Objects::nonNull).filter(item -> {
+            Entity firstItemEntity = Module.mc.world.getLoadedEntityList().stream().<Entity>map(Entity::getItemOf).filter(Objects::nonNull).filter(item -> {
                double dxx = this.posX - item.posX;
                double dyx = this.posY - item.posY;
                double dzx = this.posZ - item.posZ;

@@ -25,6 +25,8 @@ import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderItem;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.GlStateManager.DestFactor;
+import net.minecraft.client.renderer.GlStateManager.SourceFactor;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
@@ -33,6 +35,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.init.Items;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
@@ -56,6 +59,7 @@ import ru.govno.client.newfont.CFontRenderer;
 import ru.govno.client.newfont.Fonts;
 import ru.govno.client.utils.MusicHelper;
 import ru.govno.client.utils.TPSDetect;
+import ru.govno.client.utils.Math.FrameCounter;
 import ru.govno.client.utils.Math.MathUtils;
 import ru.govno.client.utils.Math.TimerHelper;
 import ru.govno.client.utils.Render.AnimationUtils;
@@ -101,6 +105,7 @@ public class Hud extends Module {
    public FloatSettings KY;
    public FloatSettings PCX;
    public FloatSettings PCY;
+   private final FrameCounter frameCounter = FrameCounter.build();
    private final Pattern validUserPattern = Pattern.compile("^\\w{3,16}$");
    TimerHelper laggCheck = new TimerHelper();
    private final AnimationUtils laggAlphaPC = new AnimationUtils(0.0F, 0.0F, 0.1F);
@@ -109,16 +114,6 @@ public class Hud extends Module {
    private static final TimerHelper arrayListLastUpdateTime = new TimerHelper();
    public static float listPosX;
    public static float listPosY;
-   private boolean side;
-   private int segment;
-   private int nolo;
-   private int secconds;
-   private int mins;
-   private int hours;
-   private float yIndent;
-   private float xPos;
-   private float yPos;
-   private float cullingX;
    ArrayList<Hud.StaffPlayer> staffPlayers = new ArrayList<>();
    boolean staffDetectSound;
    boolean staffUpdateSound;
@@ -156,40 +151,40 @@ public class Hud extends Module {
 
    public Hud() {
       super("Hud", 0, Module.Category.RENDER);
-      this.settings.add(this.WX = new FloatSettings("WX", 0.01F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.WY = new FloatSettings("WY", 0.01F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.WX = new FloatSettings("WX", 0.003F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.WY = new FloatSettings("WY", 0.006F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.Information = new BoolSettings("Information", true, this));
       this.settings
          .add(this.Info = new ModeSettings("Info", "Sleek", this, new String[]{"Sleek", "Akrien", "Plastic", "Modern"}, () -> this.Information.getBool()));
       this.settings.add(this.Watermark = new BoolSettings("Watermark", true, this));
       this.settings
-         .add(this.MarkMode = new ModeSettings("MarkMode", "Default", this, new String[]{"Default", "Chess", "Sweet", "Bloom", "Clock", "Wonderful", "Plate"}));
+         .add(this.MarkMode = new ModeSettings("MarkMode", "Sweet", this, new String[]{"Default", "Chess", "Sweet", "Bloom", "Clock", "Wonderful", "Plate"}));
       this.settings.add(this.Potions = new BoolSettings("Potions", true, this));
-      this.settings.add(this.PX = new FloatSettings("PX", 0.01F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.PY = new FloatSettings("PY", 0.35F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.PX = new FloatSettings("PX", 0.008F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.PY = new FloatSettings("PY", 0.1F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.CustomHotbar = new BoolSettings("CustomHotbar", true, this));
       this.settings.add(this.HotbarStyle = new ModeSettings("HotbarStyle", "Sleek", this, new String[]{"Sleek", "Modern"}, () -> this.CustomHotbar.getBool()));
-      this.settings.add(this.ArmorHUD = new BoolSettings("ArmorHUD", true, this));
+      this.settings.add(this.ArmorHUD = new BoolSettings("ArmorHUD", false, this));
       this.settings.add(this.AX = new FloatSettings("AX", 0.005F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.AY = new FloatSettings("AY", 0.7F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.StaffList = new BoolSettings("StaffList", false, this));
-      this.settings.add(this.SX = new FloatSettings("SX", 0.005F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.SY = new FloatSettings("SY", 0.4F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.ArrayList = new BoolSettings("ArrayList", true, this));
+      this.settings.add(this.SX = new FloatSettings("SX", 0.008F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.SY = new FloatSettings("SY", 0.5F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.ArrayList = new BoolSettings("ArrayList", false, this));
       this.settings.add(this.LX = new FloatSettings("LX", 0.999F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.LY = new FloatSettings("LY", 0.004F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.KeyBinds = new BoolSettings("KeyBinds", false, this));
-      this.settings.add(this.KX = new FloatSettings("KX", 0.005F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.KY = new FloatSettings("KY", 0.6F, 1.0F, 0.0F, this, () -> false));
-      this.settings.add(this.PickupsList = new BoolSettings("PickupsList", true, this));
-      this.settings.add(this.PCX = new FloatSettings("PCX", 0.005F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.KeyBinds = new BoolSettings("KeyBinds", true, this));
+      this.settings.add(this.KX = new FloatSettings("KX", 0.008F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.KY = new FloatSettings("KY", 0.3F, 1.0F, 0.0F, this, () -> false));
+      this.settings.add(this.PickupsList = new BoolSettings("PickupsList", false, this));
+      this.settings.add(this.PCX = new FloatSettings("PCX", 0.008F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.PCY = new FloatSettings("PCY", 0.8F, 1.0F, 0.0F, this, () -> false));
       this.settings.add(this.LagDetect = new BoolSettings("LagDetect", false, this));
       this.settings
          .add(
             this.HudRectMode = new ModeSettings(
                "HudRectMode",
-               "Glow",
+               "Stipple",
                this,
                new String[]{"Glow", "Window", "Plain", "Stipple"},
                () -> this.Potions.getBool() || this.StaffList.getBool() || this.KeyBinds.getBool() || this.PickupsList.getBool()
@@ -198,7 +193,7 @@ public class Hud extends Module {
       this.settings
          .add(
             this.ManyGlows = new BoolSettings(
-               "ManyGlows", false, this, () -> this.Potions.getBool() || this.StaffList.getBool() || this.KeyBinds.getBool() || this.PickupsList.getBool()
+               "ManyGlows", true, this, () -> this.Potions.getBool() || this.StaffList.getBool() || this.KeyBinds.getBool() || this.PickupsList.getBool()
             )
          );
       this.settings.add(this.SaturationStats = new BoolSettings("SaturationStats", true, this));
@@ -399,6 +394,7 @@ public class Hud extends Module {
 
    @EventTarget
    public void onRender2D(EventRender2D event) {
+      this.frameCounter.renderThreadRead((int)MathUtils.clamp(this.frameCounter.getFps() / 3.33333F, 10.0, 50.0));
       ScaledResolution sr = event.getResolution();
       if (this.Information.getBool() && this.Info.currentMode.equalsIgnoreCase("Sleek") && this.actived) {
          CFontRenderer font = Fonts.roboto_13;
@@ -500,11 +496,11 @@ public class Hud extends Module {
          double prevZ = Minecraft.player.posZ - Minecraft.player.prevPosZ;
          int bgColorForShadow = ColorUtils.getColor(10, 10, 10, 100);
          double bps = Math.sqrt(prevX * prevX + prevZ * prevZ) * 15.3571428571;
-         if (Speed.get.actived && Speed.get.currentMode("AntiCheat").equalsIgnoreCase("Strict")) {
+         if (Speed.get.actived && Speed.get.AntiCheat.getMode().equalsIgnoreCase("Strict")) {
             bps *= (double)(1.0F + (Minecraft.player.ticksExisted % 6 > 2 ? 0.4F : 0.0F));
          }
 
-         bps *= mc.timer.speed;
+         bps *= mc.timer.speed * mc.timer.tempSpeed;
          String speed = "§7BPS:§r " + (bps == 0.0 ? "0.0" : String.format("%.2f", bps));
          String myName = "§7NAME:§r " + Minecraft.player.getName();
          String ping = "§7PING:§r "
@@ -513,8 +509,8 @@ public class Hud extends Module {
                   ? Minecraft.player.connection.getPlayerInfo(Minecraft.player.getUniqueID()).getResponseTime()
                   : "0"
             );
-         String tps = "§7TPS§r " + TPSDetect.getTpsString();
-         String fps = "§7FPS:§r " + Minecraft.getDebugFPS();
+         String tps = "§7TPS:§r " + TPSDetect.getTpsString();
+         String uid = "§7UID:§r " + Client.uid;
          if (mc.currentScreen instanceof GuiChat) {
             if (MathUtils.getDifferenceOf(this.expand, 16.0F) != 0.0) {
                this.expand = MathUtils.harp(this.expand, 16.0F, (float)Minecraft.frameTime * 0.12F);
@@ -533,8 +529,9 @@ public class Hud extends Module {
          font.drawStringWithShadow(tps, (double)(sr.getScaledWidth() - 3 - Fonts.mntsb_12.getStringWidth(tps)), (double)y, -1);
          y += 7;
          font.drawStringWithShadow(ping, (double)((float)sr.getScaledWidth() - 14.5F - (float)Fonts.mntsb_12.getStringWidth(ping)), (double)y, -1);
-         y -= 4;
-         RenderUtils.drawPlayerPing((float)(sr.getScaledWidth() - 13), (float)y, Minecraft.player, 255.0F);
+         RenderUtils.drawPlayerPing((float)(sr.getScaledWidth() - 13), (float)y - 4.0F, Minecraft.player, 255.0F);
+         y -= 14;
+         font.drawStringWithShadow(uid, (double)(sr.getScaledWidth() - 3 - Fonts.mntsb_12.getStringWidth(uid)), (double)y, -1);
       }
 
       if (this.Information.getBool() && this.Info.currentMode.equalsIgnoreCase("Akrien") && this.actived) {
@@ -650,7 +647,7 @@ public class Hud extends Module {
          int bgColorForShadowx = ColorUtils.getColor(10, 10, 10, 100);
          double bpsx = Math.sqrt(prevXx * prevXx + prevZx * prevZx) * 15.3571428571;
          String speed = String.format("%.2f", bpsx);
-         String myName = Minecraft.getDebugFPS() + "";
+         String myName = this.frameCounter.getFpsString(false);
          int colorN = ColorUtils.getColor(0, 0, 50, 65);
          int colorP = ColorUtils.getColor(0, 0, 45, 45);
          RenderUtils.resetBlender();
@@ -753,7 +750,7 @@ public class Hud extends Module {
          String mode = this.MarkMode.currentMode;
          if (mode.equalsIgnoreCase("Default")) {
             CFontRenderer fontx = Fonts.neverlose500_13;
-            String wm = "Vegulya :3 | " + Minecraft.getDebugFPS() + "FPS";
+            String wm = "Вегуля :3 | " + this.frameCounter.getFpsString(true);
             curW = (float)fontx.getStringWidth(wm) + 13.5F;
             curH = 9.5F;
             int c1 = ColorUtils.getColor(0, 0, 0, 140);
@@ -793,8 +790,8 @@ public class Hud extends Module {
             int c2 = ColorUtils.getOverallColorFrom(ClientColors.getColor2(), ColorUtils.getColor(0, 100), 0.8F);
             int c5 = ClientColors.getColor1();
             int c6 = ClientColors.getColor2();
-            float w1 = (float)fontx.getStringWidth("Vegulya [" + Minecraft.getDebugFPS() + "FPS]") + 2.5F;
-            float w2 = (float)font2.getStringWidth("as always on top!") + 2.5F;
+            float w1 = (float)fontx.getStringWidth("Вегуля [" + this.frameCounter.getFpsString(true) + "]") + 2.5F;
+            float w2 = (float)font2.getStringWidth("как всегда на высоте!") + 2.5F;
             float w = w1 > w2 ? w1 : w2;
             curW = w;
             curH = 17.0F;
@@ -802,23 +799,21 @@ public class Hud extends Module {
             RenderUtils.drawRoundedFullGradientShadowFullGradientRoundedFullGradientRectWithBloomBool(
                x + 1.5F, y + 2.0F, x + 2.0F, y2 - 2.0F, 0.0F, 1.0F, c5, c5, c6, c6, true, true, true
             );
-            fontx.drawClientColoredString("Vegulya [" + Minecraft.getDebugFPS() + "FPS]", (double)(x + 4.5F), (double)(y + 1.5F), 1.0F, false);
-            font2.drawClientColoredString("as always on top!", (double)(x + 5.0F), (double)(y + 11.0F), 1.0F, false);
+            fontx.drawClientColoredString("Вегуля [" + this.frameCounter.getFpsString(true) + "]", (double)(x + 4.5F), (double)(y + 1.5F), 1.0F, false);
+            font2.drawClientColoredString("как всегда на высоте!", (double)(x + 5.0F), (double)(y + 11.0F), 1.0F, false);
             GlStateManager.enableDepth();
             GL11.glDepthMask(true);
          } else if (mode.equalsIgnoreCase("Bloom")) {
             CFontRenderer fontx = Fonts.comfortaaRegular_22;
             CFontRenderer font2 = Fonts.comfortaaRegular_12;
             String str = "VEGALINE";
-            String str2 = "v" + Client.version.replace("#00", "") + " : " + Minecraft.getDebugFPS() + "FPS";
+            String str2 = "v" + Client.version.replace("#00", "") + " : " + this.frameCounter.getFpsString(true);
             float w = (float)fontx.getStringWidth("VEGALINE");
             float w2 = (float)font2.getStringWidth(str2);
             curH = 21.5F;
             curW = w + 3.0F;
             float e = x + w / 2.0F > (float)(sr.getScaledWidth() / 2) ? w - w2 - 3.0F : 0.0F;
-            GlStateManager.tryBlendFuncSeparate(
-               GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
-            );
+            GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE, SourceFactor.ONE, DestFactor.ZERO);
             int col = ClientColors.getColor1((int)(x * 4.0F + w / 2.0F));
             int col2 = ClientColors.getColor2((int)(x * 4.0F + w / 2.0F));
             int color = ColorUtils.getOverallColorFrom(col, col2, 0.5F);
@@ -828,12 +823,7 @@ public class Hud extends Module {
             }, color, 5, 0, 2.8F, false);
             fontx.drawString("VEGALINE", (double)x, (double)(y + 3.0F), color);
             font2.drawString(str2, (double)(x + e + 2.5F), (double)(y + 15.0F), color);
-            GlStateManager.tryBlendFuncSeparate(
-               GlStateManager.SourceFactor.SRC_ALPHA,
-               GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-               GlStateManager.SourceFactor.ONE,
-               GlStateManager.DestFactor.ZERO
-            );
+            GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
             GlStateManager.enableDepth();
          } else if (mode.equalsIgnoreCase("Clock")) {
             Calendar celendar = Calendar.getInstance();
@@ -873,8 +863,8 @@ public class Hud extends Module {
             if (mode.equalsIgnoreCase("Plate")) {
                CFontRenderer fontx = Fonts.smallestpixel_24;
                CFontRenderer font2 = Fonts.smallestpixel_16;
-               String name = "VEHICLE " + Minecraft.getDebugFPS() + "FPS";
-               String addTop = "THE BEST OF THE BEST";
+               String name = "ВЕГУЛЯ " + this.frameCounter.getFpsString(true);
+               String addTop = "ЛУЧШИЙ ИЗ ЛУЧШИХ";
                float w = (float)fontx.getStringWidth(name);
                float w2 = (float)font2.getStringWidth(addTop);
                if (w2 > w) {
@@ -955,7 +945,7 @@ public class Hud extends Module {
             );
             RenderUtils.drawSmoothCircle((double)cx, (double)cy, 1.0F, ColorUtils.getColor(185, 125));
             CFontRenderer fontx = Fonts.comfortaaBold_18;
-            String str = "Vegulya / \t" + Minecraft.getDebugFPS() + "FPS";
+            String str = "Вегуля / \t" + this.frameCounter.getFpsString(true);
             fontx.drawStringWithShadow(str, (double)(x + cRange * 2.0F + 6.0F), (double)(y + 8.0F), -1);
             curH = 22.0F;
             curW = cRange * 2.0F + 11.0F + (float)fontx.getStringWidth(str);
@@ -1142,6 +1132,8 @@ public class Hud extends Module {
 
          int indexTex = isVertical ? 4 : 9;
          int index = 0;
+         Tessellator tessellator = Tessellator.getInstance();
+         BufferBuilder bufferbuilder = tessellator.getBuffer();
 
          for (ItemStack stack : stacks) {
             indexTex += isVertical ? 1 : -1;
@@ -1165,8 +1157,6 @@ public class Hud extends Module {
                int col1 = ColorUtils.getOverallColorFrom(c1, c2, indexColor);
                int col2 = ColorUtils.getOverallColorFrom(c3, c4, indexColor);
                RenderUtils.drawLightContureRectSmooth(1.0, 1.0, 15.0, 15.0, col1);
-               RenderUtils.drawLightContureRectSmooth(0.5, 0.5, 15.5, 15.5, ColorUtils.getColor(0, 140));
-               RenderUtils.drawLightContureRectSmooth(1.5, 1.5, 14.5, 14.5, ColorUtils.getColor(0, 140));
                RenderUtils.drawAlphedRect(1.5, 1.5, 14.5, 14.5, ColorUtils.toDark(col2, 0.6F));
                if (stack.getItem() != Items.air) {
                   RenderUtils.enableStandardItemLighting();
@@ -1196,15 +1186,22 @@ public class Hud extends Module {
 
                   int reserveArmCounter = 0;
                   if (stack.getItem() != Items.air) {
-                     for (int i = 0; i < 45; i++) {
+                     for (int i = 9; i < 36; i++) {
                         ItemStack checkStack = Minecraft.player.inventory.getStackInSlot(i);
-                        if (checkStack != null && checkStack != stack && checkStack.getItem() == stack.getItem()) {
+                        if (checkStack != stack && checkStack.getItem() == stack.getItem()) {
                            reserveArmCounter += checkStack.stackSize;
+                           if (reserveArmCounter >= 64) {
+                              break;
+                           }
                         }
                      }
                   }
 
                   if (reserveArmCounter != 0) {
+                     if (reserveArmCounter > 64) {
+                        reserveArmCounter = 64;
+                     }
+
                      int speedMS = reserveArmCounter > 1 ? 1500 : 500;
                      float colTimePC = ((float)System.currentTimeMillis() + indexColor * armWidth) % (float)speedMS / (float)speedMS;
                      int countC = ColorUtils.getOverallColorFrom(col1, -1, ((double)colTimePC > 0.5 ? 1.0F - colTimePC : colTimePC) * 2.0F);
@@ -1222,19 +1219,18 @@ public class Hud extends Module {
                }
 
                String iconName;
-               if (stack.func_190926_b() && (iconName = Minecraft.player.inventoryContainer.inventorySlots.get(indexTex).getSlotTexture()) != null) {
+               if (stack.func_190926_b() && (iconName = ((Slot)Minecraft.player.inventoryContainer.inventorySlots.get(indexTex)).getSlotTexture()) != null) {
                   mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+                  GlStateManager.enableBlend();
                   GL11.glBlendFunc(770, 1);
                   GL11.glShadeModel(7425);
-                  Tessellator tessellator = Tessellator.getInstance();
-                  BufferBuilder bufferbuilder = tessellator.getBuffer();
                   TextureAtlasSprite textureSprite = mc.getTextureMapBlocks().getAtlasSprite(iconName);
-                  bufferbuilder.begin(9, DefaultVertexFormats.POSITION_TEX_COLOR);
+                  bufferbuilder.begin(7, DefaultVertexFormats.POSITION_TEX_COLOR);
                   bufferbuilder.pos(4.0, 12.0).tex((double)textureSprite.getMinU(), (double)textureSprite.getMaxV()).color(col1).endVertex();
                   bufferbuilder.pos(12.0, 12.0).tex((double)textureSprite.getMaxU(), (double)textureSprite.getMaxV()).color(col1).endVertex();
                   bufferbuilder.pos(12.0, 4.0).tex((double)textureSprite.getMaxU(), (double)textureSprite.getMinV()).color(col2).endVertex();
                   bufferbuilder.pos(4.0, 4.0).tex((double)textureSprite.getMinU(), (double)textureSprite.getMinV()).color(col2).endVertex();
-                  tessellator.draw(6);
+                  tessellator.draw();
                   GL11.glShadeModel(7424);
                   GL11.glBlendFunc(770, 771);
                }
@@ -1588,19 +1584,9 @@ public class Hud extends Module {
          RenderUtils.drawRect((double)x, (double)y, (double)(x + w), (double)(y + ext), -1);
       } else {
          RenderUtils.drawAlphedSideways((double)x, (double)y, (double)(x + w), (double)(y + ext), reversedX ? c2 : c1, reversedX ? c1 : c2, true);
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_CONSTANT_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          RenderUtils.drawAlphedRect((double)(x + (reversedX ? -0.5F : w)), (double)y, (double)(x + (reversedX ? -0.5F : w) + 1.0F), (double)(y + ext), colTex);
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
       }
 
       if (!silent && 255.0F * alphaPC > 26.0F) {
@@ -1610,12 +1596,7 @@ public class Hud extends Module {
          }
 
          RenderUtils.customScaledObject2D(x, y, w, shag, scaleText);
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_CONSTANT_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          if (255.0F * alphaPC >= 33.0F) {
             font()
                .drawStringWithShadow(
@@ -1626,12 +1607,7 @@ public class Hud extends Module {
                );
          }
 
-         GlStateManager.tryBlendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA,
-            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-            GlStateManager.SourceFactor.ONE,
-            GlStateManager.DestFactor.ZERO
-         );
+         GlStateManager.tryBlendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
          RenderUtils.customScaledObject2D(x, y, w, shag, 1.0F / scaleText);
       }
    }
@@ -1657,7 +1633,7 @@ public class Hud extends Module {
    }
 
    boolean stringOverlapHasResult(List<String> strings, String string, boolean checkToLower) {
-      String opString = string = this.isIsNotNulledString(string) && checkToLower ? string.toLowerCase() : string;
+      String opString = this.isIsNotNulledString(string) && checkToLower ? string.toLowerCase() : string;
       return strings.size() != 0 && (strings.size() == 1 ? this.isIsNotNulledString(strings.get(0)) && this.lowerContains(strings.get(0), opString) : strings.stream().filter(inList -> this.isIsNotNulledString((String)inList) && this.lowerContains((String)inList, opString)).collect(Collectors.toList()).size() != 0);
    }
 
@@ -1802,7 +1778,7 @@ public class Hud extends Module {
          .getPlayerInfoMap()
          .stream()
          .map(NetworkPlayerInfo::getGameProfile)
-         .map(GameProfile::getName)
+         .<String>map(GameProfile::getName)
          .filter(profileName -> this.validUserPattern.matcher(profileName).matches())
          .collect(Collectors.toList());
       List<NetworkPlayerInfo> onlinePlayers = Minecraft.player
@@ -1840,7 +1816,7 @@ public class Hud extends Module {
          getedStaffs.stream().filter(staffToGet -> !this.stringOverlapHasResult(staffPlayerNamesGeted, staffToGet.name, false)).forEach(staffToGet -> {
             this.addStaffList(staffToGet);
             if (isNotifications) {
-               Notifications.Notify.spawnNotify(TextFormatting.RED + "Detected " + TextFormatting.RESET + staffToGet.getName(), Notifications.type.STAFF);
+               Notifications.Notify.spawnNotify(TextFormatting.RED + "Обнаружен " + TextFormatting.RESET + staffToGet.getName(), Notifications.type.STAFF);
                this.staffDetectSound = true;
             }
          });
@@ -1856,7 +1832,7 @@ public class Hud extends Module {
             staff.setSkinLoc(null);
             if (isNotifications) {
                Notifications.Notify.spawnNotify(
-                  TextFormatting.RED + "Staff " + TextFormatting.RESET + staff.getName() + TextFormatting.RESET + TextFormatting.GREEN + " came out.",
+                  TextFormatting.RED + "Стафф " + TextFormatting.RESET + staff.getName() + TextFormatting.RESET + TextFormatting.GREEN + " вышел",
                   Notifications.type.STAFF
                );
                this.staffUpdateSound = true;
@@ -1894,12 +1870,12 @@ public class Hud extends Module {
                         if (isNotifications && staffGeted.getTime() > 500L) {
                            Notifications.Notify.spawnNotify(
                               TextFormatting.RED
-                                 + "Staff "
+                                 + "Cтафф "
                                  + TextFormatting.RESET
                                  + staffGeted.getDisplayName()
                                  + " "
                                  + TextFormatting.RESET
-                                 + (trueVanish ? TextFormatting.RED + "entered vanish!" : TextFormatting.GREEN + "left vanish!"),
+                                 + (trueVanish ? TextFormatting.RED + "вошёл в ваниш" : TextFormatting.GREEN + "вышел с ваниша"),
                               Notifications.type.STAFF
                            );
                            this.staffUpdateSound = true;
@@ -1929,13 +1905,13 @@ public class Hud extends Module {
 
                            Notifications.Notify.spawnNotify(
                               TextFormatting.RED
-                                 + "Staff "
+                                 + "Cтафф "
                                  + TextFormatting.RESET
                                  + staffGeted.getDisplayName()
                                  + " "
                                  + TextFormatting.RESET
                                  + TextFormatting.GRAY
-                                 + "entered "
+                                 + "вошёл в "
                                  + gmColor
                                  + "Gm"
                                  + gmPass.getID(),
@@ -2494,7 +2470,7 @@ public class Hud extends Module {
 
          name = name
             + TextFormatting.GRAY
-            + I18n.format("enchantment.level." + (potion.getAmplifier() == 0 ? 0 : potion.getAmplifier() + 1))
+            + I18n.format("enchantment.level." + (potion.getAmplifier() == 0 ? 0 : potion.getAmplifier() + 1), new Object[0])
                .replace("enchantment.level.0", "")
                .replace("enchantment.level.", "");
          name = name.replace("256", "").replace("  ", " ");
@@ -2607,7 +2583,7 @@ public class Hud extends Module {
 
             name = name
                + TextFormatting.GRAY
-               + I18n.format("enchantment.level." + (this.potion.getAmplifier() == 0 ? 0 : this.potion.getAmplifier() + 1))
+               + I18n.format("enchantment.level." + (this.potion.getAmplifier() == 0 ? 0 : this.potion.getAmplifier() + 1), new Object[0])
                   .replace("enchantment.level.0", "")
                   .replace("enchantment.level.", "");
             name = name.replace("256", "").replace("  ", " ");
@@ -2791,11 +2767,11 @@ public class Hud extends Module {
                   .getLoadedEntityList()
                   .stream()
                   .filter(Objects::nonNull)
-                  .map(Entity::getLivingBaseOf)
+                  .<EntityLivingBase>map(Entity::getLivingBaseOf)
                   .filter(Objects::nonNull)
                   .filter(e -> e instanceof EntityOtherPlayerMP)
                   .toList();
-               boolean hasNear = neared.stream().map(Entity::getName).anyMatch(match -> Hud.this.lowerContains(match, this.name));
+               boolean hasNear = neared.stream().<String>map(Entity::getName).anyMatch(match -> Hud.this.lowerContains(match, this.name));
                if (hasNear) {
                   int dst = neared.stream()
                      .filter(entity -> Hud.this.lowerContains(entity.getName(), this.name))

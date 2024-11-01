@@ -2,7 +2,10 @@ package ru.govno.client.module.modules;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -14,6 +17,10 @@ import net.minecraft.init.Blocks;
 import net.minecraft.network.play.client.CPacketConfirmTeleport;
 import net.minecraft.network.play.client.CPacketPlayer;
 import net.minecraft.network.play.client.CPacketPlayerDigging;
+import net.minecraft.network.play.client.CPacketPlayer.Position;
+import net.minecraft.network.play.client.CPacketPlayer.Rotation;
+import net.minecraft.network.play.client.CPacketPlayerDigging.Action;
+import net.minecraft.network.play.server.SPacketPlayerPosLook;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHandSide;
 import net.minecraft.util.math.BlockPos;
@@ -22,6 +29,7 @@ import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.opengl.GL11;
 import ru.govno.client.event.EventTarget;
 import ru.govno.client.event.events.EventPlayerMotionUpdate;
+import ru.govno.client.event.events.EventReceivePacket;
 import ru.govno.client.event.events.EventSendPacket;
 import ru.govno.client.event.events.EventTransformSideFirstPerson;
 import ru.govno.client.module.Module;
@@ -53,14 +61,17 @@ public class Fly extends Module {
    public FloatSettings SpeedXZ;
    public FloatSettings SpeedCrate;
    public FloatSettings StepCrate;
-   final TimerHelper ticker = new TimerHelper();
-   final TimerHelper ticker2 = new TimerHelper();
-   final TimerHelper timeFlying = new TimerHelper();
-   int tickerFinalling;
+   private final Set<CPacketPlayer> allowedCPacketPlayers = new HashSet<>();
+   private int tpID = -1;
+   private final HashMap<Integer, Vec3d> allowedPositionsAndIDs = new HashMap<>();
+   private final TimerHelper ticker = new TimerHelper();
+   private final TimerHelper ticker2 = new TimerHelper();
+   private final TimerHelper timeFlying = new TimerHelper();
+   private int tickerFinalling;
    private boolean enableGround = false;
    public static double flySpeed = 0.0;
    private final AnimationUtils alphed = new AnimationUtils(0.0F, 0.0F, 0.075F);
-   int ticksBoost = 0;
+   private int ticksBoost = 0;
    private final TimerHelper soundTimer = new TimerHelper();
 
    public Fly() {
@@ -71,7 +82,7 @@ public class Fly extends Module {
                "Mode",
                "MatrixChunk",
                this,
-               new String[]{"Vanilla", "MatrixChunk", "MatrixOld", "NCP", "Jartex", "AAC", "Rage", "Motion", "Grim", "MatrixLatest"}
+               new String[]{"Vanilla", "MatrixChunk", "MatrixOld", "NCP", "Jartex", "AAC", "Rage", "Motion", "Grim", "MatrixLatest", "Matrix&AAC"}
             )
          );
       this.settings
@@ -87,7 +98,12 @@ public class Fly extends Module {
       this.settings
          .add(
             this.NoVanillaKick = new BoolSettings(
-               "NoVanillaKick", false, this, () -> this.Mode.currentMode.equalsIgnoreCase("MatrixChunk") || this.Mode.currentMode.equalsIgnoreCase("Rage")
+               "NoVanillaKick",
+               false,
+               this,
+               () -> this.Mode.currentMode.equalsIgnoreCase("MatrixChunk")
+                     || this.Mode.currentMode.equalsIgnoreCase("Rage")
+                     || this.Mode.currentMode.equalsIgnoreCase("NCP")
             )
          );
       this.settings
@@ -359,8 +375,7 @@ public class Fly extends Module {
                   BlockPos poss = new BlockPos((double)xs + ePos.xCoord, (double)ys + ePos.yCoord, (double)zs + ePos.zCoord);
                   IBlockState state = mc.world.getBlockState(poss);
                   Block block = mc.world.getBlockState(poss).getBlock();
-                  if (state.getMaterial().isReplaceable()
-                     && block != Blocks.AIR
+                  if (block != Blocks.AIR
                      && block != Blocks.WATER
                      && block != Blocks.LAVA
                      && poss != null
@@ -380,8 +395,8 @@ public class Fly extends Module {
             );
             BlockPos pos = mixPoses.get(0);
             if (pos != null) {
-               Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.START_DESTROY_BLOCK, pos, EnumFacing.UP));
-               Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(CPacketPlayerDigging.Action.STOP_DESTROY_BLOCK, pos, EnumFacing.UP));
+               Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(Action.START_DESTROY_BLOCK, pos, EnumFacing.UP));
+               Minecraft.player.connection.sendPacket(new CPacketPlayerDigging(Action.STOP_DESTROY_BLOCK, pos, EnumFacing.UP));
                this.ticksBoost = 1;
             }
          }
@@ -491,22 +506,71 @@ public class Fly extends Module {
       }
 
       if (this.Mode.currentMode.equalsIgnoreCase("NCP")) {
-         boolean up = Minecraft.player.isJumping();
-         boolean down = Minecraft.player.isSneaking();
-         boolean move = MoveMeHelp.moveKeysPressed();
-         double speed = !up && !down ? (move ? MoveMeHelp.getSpeedByBPS(4.010000000000001) : 0.0) : 0.0;
-         float moveYaw = (float)Math.toRadians((double)MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
-         double sinSpeed = -Math.sin((double)moveYaw) * speed;
-         double cosSpeed = Math.cos((double)moveYaw) * speed;
-         double ySpeed = up ? 0.062 : (down ? -0.102 : (move ? 0.0 : (Minecraft.player.ticksExisted % 2 == 0 && !Minecraft.player.onGround ? 0.01 : -0.01)));
-         double pX = Minecraft.player.posX + sinSpeed;
-         double pY = Minecraft.player.posY + ySpeed;
-         double pZ = Minecraft.player.posZ + cosSpeed;
-         MoveMeHelp.setMotionSpeed(true, false, 0.0);
-         MoveMeHelp.setSpeed(-speed / 5.0);
-         Entity.motiony = 1.0E-45;
-         Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(pX, pY, pZ, false));
-         Minecraft.player.connection.sendPacket(new CPacketPlayer.Position(0.0, pY + ySpeed, 0.0, true));
+         if (this.allowedCPacketPlayers.size() >= 400) {
+            CPacketPlayer firstKey = null;
+
+            for (int attempts = this.allowedCPacketPlayers.size(); firstKey == null && attempts > 0; attempts--) {
+               firstKey = this.allowedCPacketPlayers.iterator().next();
+            }
+
+            if (firstKey != null) {
+               this.allowedCPacketPlayers.remove(firstKey);
+            }
+         }
+
+         double motionX = 0.0;
+         double motionY = 0.0;
+         double motionZ = 0.0;
+         double ySpeed = 0.0624;
+         double hSpeed = 0.0;
+         double hSpeedStat = 0.0624;
+         double moveSpeed = 0.2543;
+         int ticksFlying = (int)((float)this.timeFlying.getTime() / 50.0F);
+         boolean tickBoost = ticksFlying % 4 == 3;
+         boolean tickFlyTickDown = this.NoVanillaKick.getBool() && ticksFlying % 60 >= 58;
+         boolean tickFlyTickUp = this.NoVanillaKick.getBool() && !tickFlyTickDown && ticksFlying % 60 >= 56;
+         boolean hasMotion = MoveMeHelp.moveKeysPressed() && !Minecraft.player.isJumping();
+         if (!hasMotion) {
+            tickBoost = ticksFlying % 5 == 2;
+         }
+
+         int boostFactor = tickBoost ? 2 : 1;
+         if (Minecraft.player.isJumping() && ticksFlying > 1) {
+            motionY = ySpeed;
+            Minecraft.player.jumpMovementFactor = 0.0F;
+            hSpeed = 0.0;
+         } else {
+            hSpeed = moveSpeed;
+            if (Minecraft.player.isSneaking()) {
+               motionY = -ySpeed;
+               hSpeed = moveSpeed * 0.9;
+            } else {
+               motionY = 0.0;
+            }
+         }
+
+         boolean antiKicking = false;
+         if ((tickFlyTickUp || tickFlyTickDown) && motionY == 0.0 || motionY > 0.0 && tickFlyTickDown || motionY < 0.0 && tickFlyTickUp) {
+            motionY = tickFlyTickUp ? 0.05 : -0.05;
+            Minecraft.player.jumpMovementFactor = 0.0F;
+            hSpeed = 0.0624;
+            antiKicking = true;
+         }
+
+         if (hSpeed != 0.0 && hasMotion) {
+            double motionYaw = Math.toRadians((double)MoveMeHelp.moveYaw(Minecraft.player.rotationYaw));
+            motionX = -Math.sin(motionYaw) * hSpeed;
+            motionZ = Math.cos(motionYaw) * hSpeed;
+         } else {
+            boostFactor += boostFactor > 1 && !antiKicking ? 1 : 0;
+         }
+
+         Minecraft.player.motionX = motionX * (double)boostFactor;
+         Minecraft.player.motionY = motionY * (double)boostFactor;
+         Minecraft.player.motionZ = motionZ * (double)boostFactor;
+         if (ticksFlying == 0 || motionX != 0.0 || motionY != 0.0 || motionZ != 0.0) {
+            this.sendMoveNCP(motionX, motionY, motionZ, boostFactor);
+         }
       }
 
       if (this.Mode.currentMode.equalsIgnoreCase("Jartex")) {
@@ -525,8 +589,72 @@ public class Fly extends Module {
       }
    }
 
+   private void sendMoveNCP(double motionX, double motionY, double motionZ, int factor) {
+      for (int i = 1; i < factor + 1; i++) {
+         Vec3d pos = Minecraft.player.getPositionVector().addVector(motionX * (double)i, motionY * (double)i, motionZ * (double)i);
+         CPacketPlayer packet = new Position(pos.xCoord, pos.yCoord, pos.zCoord, true);
+         CPacketPlayer bounds = new Position(pos.xCoord, pos.yCoord + 512.0, pos.zCoord, true);
+         this.allowedCPacketPlayers.add(packet);
+         this.allowedCPacketPlayers.add(bounds);
+         mc.getConnection().sendPacket(packet);
+         mc.getConnection().sendPacket(bounds);
+         if (this.tpID < 0) {
+            break;
+         }
+
+         this.tpID++;
+         Minecraft.player.connection.sendPacket(new CPacketConfirmTeleport(this.tpID));
+         this.allowedPositionsAndIDs.put(this.tpID, pos);
+      }
+   }
+
+   @EventTarget
+   public void onSendPackets(EventSendPacket event) {
+      if (this.isActived()
+         && event.getPacket() instanceof CPacketPlayer playerPacket
+         && this.Mode.currentMode.equalsIgnoreCase("NCP")
+         && !this.allowedCPacketPlayers.contains(playerPacket)) {
+         event.cancel();
+      }
+   }
+
+   @EventTarget
+   public void onReceivePackets(EventReceivePacket event) {
+      if (this.isActived()
+         && event.getPacket() instanceof SPacketPlayerPosLook lookPacket
+         && this.Mode.currentMode.equalsIgnoreCase("NCP")
+         && Minecraft.player != null) {
+         Vec3d rubberBandPos = new Vec3d(lookPacket.getX(), lookPacket.getY(), lookPacket.getZ());
+         if (rubberBandPos.distanceTo(Minecraft.player.getPositionVector()) > 8.0) {
+            this.toggle(false);
+            return;
+         }
+
+         if (this.allowedPositionsAndIDs.containsKey(lookPacket.getTeleportId())
+            && this.allowedPositionsAndIDs.get(lookPacket.getTeleportId()).equals(rubberBandPos)) {
+            this.allowedPositionsAndIDs.remove(lookPacket.getTeleportId());
+            mc.getConnection().sendPacket(new CPacketConfirmTeleport(lookPacket.getTeleportId()));
+            event.cancel();
+            return;
+         }
+
+         this.tpID = lookPacket.getTeleportId();
+         mc.getConnection().sendPacket(new CPacketConfirmTeleport(lookPacket.getTeleportId()));
+      }
+   }
+
    @Override
    public void onMovement() {
+      if (this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC") && !Minecraft.player.capabilities.allowFlying) {
+         Entity.motionx = 1.0E-45;
+         Entity.motiony = 1.0E-45;
+         Entity.motionz = 1.0E-45;
+         Minecraft.player.motionX = 0.0;
+         Minecraft.player.motionY = 0.0;
+         Minecraft.player.motionZ = 0.0;
+         Minecraft.player.jumpMovementFactor = 0.0F;
+      }
+
       if (this.Mode.currentMode.equalsIgnoreCase("Motion")) {
          Minecraft.player.multiplyMotionXZ(0.0F);
          MoveMeHelp.setCuttingSpeed((double)(9.953F * (this.SpeedXZ.getFloat() / 10.0F)) / 1.06);
@@ -601,6 +729,11 @@ public class Fly extends Module {
    public void onToggled(boolean actived) {
       if (actived) {
          this.timeFlying.reset();
+         if (this.Mode.currentMode.equalsIgnoreCase("NCP")) {
+            this.tpID = -1;
+            mc.getConnection().sendPacket(new Rotation(Minecraft.player.rotationYaw, 90.0F, false));
+         }
+
          if (this.Mode.currentMode.equalsIgnoreCase("MatrixLatest")) {
             this.ticksBoost = 0;
          }
@@ -625,6 +758,11 @@ public class Fly extends Module {
             this.tickerFinalling = 0;
          }
       } else {
+         if (this.Mode.currentMode.equalsIgnoreCase("NCP")) {
+            this.allowedCPacketPlayers.clear();
+            this.allowedPositionsAndIDs.clear();
+         }
+
          if (this.Mode.currentMode.equalsIgnoreCase("MatrixChunk")) {
             MoveMeHelp.setSpeed(
                this.SmoothSpeed.getBool() ? MoveMeHelp.getSpeed() / 5.0 : MoveMeHelp.getSpeed() / 30.0, this.SmoothSpeed.getBool() ? 0.3F : 0.0F
@@ -652,6 +790,51 @@ public class Fly extends Module {
    @EventTarget
    public void onPlayerUpdate(EventPlayerMotionUpdate e) {
       if (this.actived) {
+         if (this.Mode.currentMode.equalsIgnoreCase("Matrix&AAC")) {
+            int flyTicks = Minecraft.player.ticksExisted;
+            int perTicks = 9;
+            boolean gm = Minecraft.player.capabilities.allowFlying;
+            double etpHSpeed = gm ? 1.0 : 0.4172;
+            double etpYSpeed = gm ? 2.0 : 0.31;
+            if (flyTicks % perTicks == perTicks - 1 || gm) {
+               double moveYaw = (double)MoveMeHelp.moveYaw(Minecraft.player.rotationYaw);
+               boolean shouldMove = MoveMeHelp.moveKeysPressed();
+               double vMot = 0.0;
+               double hMot = 0.0;
+               if (shouldMove) {
+                  hMot = etpHSpeed;
+                  if (gm) {
+                     vMot = Minecraft.player.isJumping() ? etpYSpeed : (Minecraft.player.isSneaking() ? -etpYSpeed : 0.0);
+                  }
+               } else {
+                  vMot = Minecraft.player.isJumping() ? etpYSpeed : (Minecraft.player.isSneaking() ? -etpYSpeed : 0.0);
+               }
+
+               if (gm) {
+                  if (MoveMeHelp.isMoving()) {
+                     MoveMeHelp.setSmoothSpeed(1.0, 0.5, false);
+                  } else {
+                     Minecraft.player.multiplyMotionXZ(0.3F);
+                  }
+
+                  if (flyTicks % 2 == 1
+                     && (
+                        Speed.posBlock(Minecraft.player.posX, Minecraft.player.posY - 1.0E-7, Minecraft.player.posZ) && MoveMeHelp.isMoving()
+                           || Minecraft.player.motionY > 0.0
+                     )) {
+                     mc.timer.tempSpeed = 3.0;
+                  }
+
+                  Minecraft.player.motionY = vMot;
+               } else {
+                  Vec3d offsetMotion = new Vec3d(-Math.sin(Math.toRadians(moveYaw)) * hMot, vMot, Math.cos(Math.toRadians(moveYaw)) * hMot)
+                     .add(Minecraft.player.getPositionVector());
+                  mc.getConnection().sendPacket(new Position(offsetMotion.xCoord, offsetMotion.yCoord, offsetMotion.zCoord, true));
+                  mc.getConnection().sendPacket(new Position(offsetMotion.xCoord, offsetMotion.yCoord + 80.0, offsetMotion.zCoord, true));
+               }
+            }
+         }
+
          if (this.Mode.currentMode.equalsIgnoreCase("MatrixChunk")) {
             if (Minecraft.player.onGround && Minecraft.player.fallDistance == 0.0F && this.AutoUp.getBool()) {
                MoveMeHelp.setSpeed(0.0);

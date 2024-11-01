@@ -3,7 +3,8 @@ package ru.govno.client.cfg;
 import com.google.gson.JsonObject;
 
 public interface ConfigUpdater {
-   JsonObject save();
+    public JsonObject save();
 
-   void load(JsonObject var1);
+    public boolean load(JsonObject var1);
 }
+

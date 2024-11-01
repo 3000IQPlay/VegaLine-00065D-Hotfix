@@ -135,7 +135,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
       break;
     }
     p+=r*d;
-    at+=0.9/(3.0+abs(d));
+    at+=0.7/(4.0+abs(d));
   }
   
   // if we hit a surface
@@ -213,14 +213,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   
   vec3 col=vec3(0);
   
-  col += (val + 0.1);
+  col += (val + 0.2);
   
-  col *= at*0.08;
+  col *= abs(at)*0.7;
   
-  // if on the second part, invert everything to get a white background
-  if(wantinverse>0.5) {
-    col = pow((1.0-col),vec3(12));
-  }
   
 #if ALL_COLORS
   // rotate all the colors

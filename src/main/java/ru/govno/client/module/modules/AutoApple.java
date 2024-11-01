@@ -61,17 +61,20 @@ public class AutoApple extends Module {
    }
 
    private boolean healthWarning() {
-      return Minecraft.player.getHealth() + (get.PlusAbsorb.getBool() ? Minecraft.player.getAbsorptionAmount() : 0.0F) < get.MinHealth.getFloat();
+      return Minecraft.player.getHealth()
+            + (get.PlusAbsorb.getBool() ? (Minecraft.player.getAbsorptionAmount() > 4.0F ? 4.0F : Minecraft.player.getAbsorptionAmount()) : 0.0F)
+         < get.MinHealth.getFloat();
    }
 
    public boolean canEat() {
       return (!get.OnlyTargetStrafe.getBool() || TargetStrafe.goStrafe())
-         && Minecraft.player.getHeldItemOffhand().getItem() instanceof ItemAppleGold
+         && Minecraft.player.getHeldItemOffhand().getItem() instanceof ItemAppleGold item
          && !Minecraft.player.isBlocking()
          && !Minecraft.player.isDrinking()
          && this.healthWarning()
          && !Minecraft.player.isCreative()
-         && !this.itemStackCanBeUsed(Minecraft.player.getHeldItemMainhand());
+         && !this.itemStackCanBeUsed(Minecraft.player.getHeldItemMainhand())
+         && (!Minecraft.player.isHandActive() || Minecraft.player.getActiveItemStack().getItem() != item || Minecraft.player.getItemInUseMaxCount() <= 38);
    }
 
    private void stopProcessEat() {
