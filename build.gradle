@@ -6,8 +6,8 @@ plugins {
 subprojects {
     apply plugin: 'java'
 
-    group = 'dev.iq'
-    version = '00043R'
+    group = 'ru.govno.client'
+    version = '00065D-Hotfix'
 
     compileJava {
         sourceCompatibility = targetCompatibility = JavaVersion.VERSION_17
@@ -38,6 +38,7 @@ jar {
         attributes(
                 'Manifest-Version': '1.0',
                 'Main-Class': 'Start',
+                'Comment': 'VegaLine SRC by github.com/3000IQPlay',
         )
     }
 }
